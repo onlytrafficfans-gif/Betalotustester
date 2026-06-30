@@ -12,6 +12,8 @@ const QUICK_TIPS = [
   { icon: Keyboard, text: 'Press Ctrl+\\ to toggle the sidebar' },
 ];
 
+const localDismissKey = (userId: string) => `lotus_hints_dismissed_${userId}`;
+
 interface FirstLoginHintsProps {
   userId?: string;
 }
@@ -26,6 +28,10 @@ export function FirstLoginHints({ userId }: FirstLoginHintsProps) {
 
     // Check if user has dismissed hints
     const checkDismissed = async () => {
+      if (localStorage.getItem(localDismissKey(userId)) === '1') {
+        setDismissed(true);
+        return;
+      }
       try {
         const { data } = await supabase
           .from('user_profiles')
@@ -57,6 +63,7 @@ export function FirstLoginHints({ userId }: FirstLoginHintsProps) {
   const handleDismiss = async () => {
     setShow(false);
     setDismissed(true);
+    if (userId) localStorage.setItem(localDismissKey(userId), '1');
     if (userId) {
       try {
         await supabase
@@ -74,8 +81,8 @@ export function FirstLoginHints({ userId }: FirstLoginHintsProps) {
   const TipIcon = QUICK_TIPS[currentTip].icon;
 
   return (
-    <div className="fixed top-9 right-4 z-[65] animate-in slide-in-from-top-2 fade-in duration-300">
-      <div className="w-[280px] bg-[#0f0f0f] border border-white/[0.06] rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
+    <div className="fixed left-4 right-4 top-[calc(2.5rem+env(safe-area-inset-top))] z-[55] animate-in slide-in-from-top-2 fade-in duration-300 md:left-auto md:right-4 md:top-9">
+      <div className="w-full max-w-[calc(100vw-32px)] bg-[#0f0f0f] border border-white/[0.06] rounded-xl shadow-2xl shadow-black/50 overflow-hidden md:w-[280px]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]">
           <div className="flex items-center gap-2">

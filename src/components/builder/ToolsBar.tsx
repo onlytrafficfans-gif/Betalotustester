@@ -48,7 +48,7 @@ export function ToolsBar() {
   const toggleConnector = useCallback((id: string) => { setActiveConnectors(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]); }, []);
 
   return (
-    <div className="shrink-0 border-t border-white/5 bg-[#0a0a0a] relative">
+    <div className="hidden md:block shrink-0 border-t border-white/5 bg-[#0a0a0a] relative">
       {showSkills && (
         <div className="absolute bottom-full left-0 right-0 mb-1 mx-3 z-50">
           <div className="rounded-xl bg-[#141414] border border-white/10 shadow-2xl overflow-hidden">

@@ -30,7 +30,7 @@ export function ChatPanel() {
   const handleDismissError = () => { setShowError(false); clearError(); };
 
   return (
-    <div className="flex flex-col h-full bg-[#050505]">
+    <div className="flex flex-col h-full min-w-0 overflow-x-hidden bg-[#050505]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -52,7 +52,7 @@ export function ChatPanel() {
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-4">
         {appliedChanges.length > 0 && showChanges && (
           <div className="rounded-xl border border-lotus-400/15 bg-lotus-400/[0.04] p-3 mb-3">
             <div className="flex items-center justify-between mb-2">

@@ -1,7 +1,7 @@
 /**
  * BuilderLayout
  * Desktop: sidebar (250px) | chat panel (flex-1 min 350px) | preview (400px)
- * Mobile: bottom tabs switch between chat/preview, settings as overlay
+ * Mobile: bottom tabs switch between chat/preview/skills/projects/settings
  */
 import { useEffect, useCallback } from 'react';
 import { useBuilderStore } from '@/state/builderStore';
@@ -62,9 +62,10 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
   const showPreviewPane = mobileTab === 'preview';
   const showMobileProjects = mobileTab === 'projects';
   const showMobileSettings = mobileTab === 'settings';
+  const showMobileSkills = mobileTab === 'skills';
 
   return (
-    <div className="h-full flex bg-[#050505] overflow-hidden">
+    <div className="h-full flex flex-col md:flex-row bg-[#050505] overflow-hidden max-w-full">
       <PWAInstallPrompt />
       <FirstLoginHints userId={user.id} />
 
@@ -83,7 +84,7 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
 
       {/* Chat panel */}
       <main
-        className={`flex-1 min-w-0 flex flex-col border-r border-white/[0.04] ${
+        className={`flex-1 min-h-0 min-w-0 flex-col border-r border-white/[0.04] ${
           showChat ? 'flex' : 'hidden md:flex'
         }`}
       >
@@ -92,31 +93,31 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
             <ChatPanel />
           </ErrorBoundary>
         </div>
-        <MobileTabs />
       </main>
 
       {/* Mobile project/settings panels */}
       <section
         className={`flex-1 min-w-0 bg-[#0a0a0a] ${
-          showMobileProjects || showMobileSettings ? 'flex md:hidden' : 'hidden'
+          showMobileProjects || showMobileSettings || showMobileSkills ? 'flex md:hidden' : 'hidden'
         }`}
       >
         <div className="flex min-h-0 w-full flex-col">
           <div className="flex-1 min-h-0 overflow-hidden">
-            {showMobileProjects ? <ProjectSidebar /> : <SettingsPanel />}
+            {showMobileProjects && <ProjectSidebar />}
+            {showMobileSettings && <SettingsPanel />}
+            {showMobileSkills && <SkillsAgentsPanel />}
           </div>
-          <MobileTabs />
         </div>
       </section>
 
       {/* Preview */}
       <section
-        className={`shrink-0 bg-[#080808] transition-all duration-200 ${
+        className={`min-h-0 shrink-0 bg-[#080808] transition-all duration-200 ${
           showPreviewPane ? 'flex' : 'hidden md:flex'
         } ${
           useBuilderStore.getState().showPreview
-            ? 'w-full md:w-[420px] lg:w-[450px] xl:w-[480px]'
-            : 'w-0 overflow-hidden'
+            ? 'w-full flex-1 md:flex-none md:w-[420px] lg:w-[450px] xl:w-[480px]'
+            : showPreviewPane ? 'w-full flex-1 md:w-0 md:overflow-hidden' : 'w-0 overflow-hidden'
         }`}
       >
         <div className="w-full h-full overflow-auto">
@@ -125,10 +126,12 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
       </section>
 
       {/* Skills panel overlay */}
-      {showSkillsPanel && <SkillsAgentsPanel />}
+      {showSkillsPanel && <div className="hidden md:block h-full w-[320px] shrink-0"><SkillsAgentsPanel /></div>}
 
       {/* Floating toolbar */}
       <FloatingToolbar />
+
+      <MobileTabs />
     </div>
   );
 }

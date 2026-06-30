@@ -14,8 +14,8 @@ const TABS = [
 export function MobileTabs() {
   const { mobileTab, setMobileTab } = useBuilderStore();
   return (
-    <div className="lg:hidden shrink-0 border-t border-white/5 bg-[#0a0a0a] z-50">
-      <div className="flex items-center justify-around px-2">
+    <nav className="md:hidden shrink-0 border-t border-white/5 bg-[#0a0a0a] z-50 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-around px-2 min-h-[58px]">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = mobileTab === tab.id;
@@ -27,6 +27,6 @@ export function MobileTabs() {
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

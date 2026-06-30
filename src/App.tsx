@@ -63,7 +63,7 @@ function App() {
   return (
     <>
       {/* User bar */}
-      <div className="fixed top-0 left-0 right-0 z-[60] h-7 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3">
+      <div className="fixed top-0 left-0 right-0 z-[60] h-[calc(1.75rem+env(safe-area-inset-top))] bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3 pt-[env(safe-area-inset-top)]">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-white/20 font-mono">LOTUS</span>
         </div>
@@ -83,7 +83,7 @@ function App() {
           </button>
         </div>
       </div>
-      <div className="pt-7 h-screen">
+      <div className="h-screen pt-[calc(1.75rem+env(safe-area-inset-top))] overflow-hidden">
         <BuilderLayout user={user} />
       </div>
       <Toaster

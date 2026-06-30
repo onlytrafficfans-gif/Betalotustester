@@ -60,7 +60,7 @@ export function FloatingToolbar() {
   };
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#0f0f0f]/90 backdrop-blur-xl border border-white/[0.06] shadow-2xl shadow-black/50">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[70] hidden md:flex items-center gap-1 px-2 py-1.5 rounded-xl bg-[#0f0f0f]/90 backdrop-blur-xl border border-white/[0.06] shadow-2xl shadow-black/50">
       {/* Undo/Redo */}
       <div className="flex items-center gap-0.5 pr-2 border-r border-white/[0.06]">
         <ToolbarButton

@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useBuilderStore } from '@/state/builderStore';
-import { RotateCcw, AlertTriangle, Layout, Database, Key, Eye, EyeOff, Check, Trash2, Zap, ExternalLink, ChevronDown, Wand2, Plus, X, Sun, Moon } from 'lucide-react';
+import { generateExportFiles, exportToZip } from '@/lib/builder/exportGenerator';
+import { RotateCcw, AlertTriangle, Layout, Database, Key, Eye, EyeOff, Check, Trash2, Zap, ExternalLink, ChevronDown, Wand2, Plus, X, Sun, Moon, Smartphone, Tablet, Monitor, Download, Upload } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserId } from './BuilderLayout';
 import { PRESET_PROVIDERS, loadStoredProviders, removeProvider, maskKey, addProvider } from '@/lib/ai/apiKeyStorage';
@@ -104,12 +105,23 @@ function CustomProviderForm({ onAdd }: { onAdd: (p: StoredProvider) => void }) {
 }
 
 export function SettingsPanel() {
-  const { project, resetCurrentProject, schema, providerId, switchProvider, addApiProvider, migrateFromLocalStorage } = useBuilderStore();
+  const { project, resetCurrentProject, schema, providerId, switchProvider, addApiProvider, migrateFromLocalStorage, previewDevice, setPreviewDevice, setMobileTab, showToast } = useBuilderStore();
   const { mode, toggle } = useTheme(useUserId());
   const userId = useUserId();
   const [activeProviders, setActiveProviders] = useState<StoredProvider[]>([]);
   const [showDanger, setShowDanger] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  const handleMobileExport = useCallback(async () => {
+    try {
+      const files = generateExportFiles(schema);
+      await exportToZip(files, schema.name || 'lotus-export');
+      showToast({ type: 'success', message: 'Export zip ready' });
+    } catch (error) {
+      console.error('[LOTUS] Export failed:', error);
+      showToast({ type: 'error', message: 'Export failed. Try again.' });
+    }
+  }, [schema, showToast]);
 
   useEffect(() => {
     if (!userId) return;
@@ -185,6 +197,31 @@ export function SettingsPanel() {
             <div className="flex items-center gap-2">{mode === 'dark' ? <Moon size={14} className="text-lotus-400" /> : <Sun size={14} className="text-lotus-400" />}<span className="text-xs text-white/60">{mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</span></div>
             <div className={`w-8 h-4 rounded-full transition-all ${mode === 'dark' ? 'bg-lotus-400' : 'bg-white/10'} relative`}><div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${mode === 'dark' ? 'left-4.5' : 'left-0.5'}`} /></div>
           </button>
+        </section>
+        <section className="md:hidden space-y-3">
+          <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider flex items-center gap-1.5"><Smartphone size={10} />Demo Controls</h3>
+          <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/5 bg-white/[0.02] p-1">
+            {[
+              { id: 'phone' as const, label: 'Phone', icon: Smartphone },
+              { id: 'tablet' as const, label: 'Tablet', icon: Tablet },
+              { id: 'desktop' as const, label: 'Desktop', icon: Monitor },
+            ].map((device) => {
+              const Icon = device.icon;
+              return (
+                <button
+                  key={device.id}
+                  onClick={() => setPreviewDevice(device.id)}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[10px] font-medium transition-all ${previewDevice === device.id ? 'bg-lotus-400/10 text-lotus-400' : 'text-white/35 hover:bg-white/5 hover:text-white/60'}`}
+                >
+                  <Icon size={12} />{device.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={handleMobileExport} className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 text-xs font-medium text-white/50 transition-all hover:bg-white/[0.05] hover:text-lotus-400"><Download size={13} />Export</button>
+            <button onClick={() => setMobileTab('projects')} className="flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 text-xs font-medium text-white/50 transition-all hover:bg-white/[0.05] hover:text-lotus-400"><Upload size={13} />Import</button>
+          </div>
         </section>
         <section className="space-y-3">
           <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider flex items-center gap-1.5"><Key size={10} />AI Providers</h3>
