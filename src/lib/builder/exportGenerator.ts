@@ -4,6 +4,7 @@
  * Generates deployable code bundles from app schemas.
  * Supports multiple export formats: PWA, static site, Expo project.
  */
+import { generateExpoProject } from './expoExport';
 
 export type ExportFormat = "pwa" | "static" | "expo";
 
@@ -158,7 +159,6 @@ function generateStaticExport(schema: any): ExportFile[] {
  * Generate Expo project export
  */
 function generateExpoExport(schema: any): ExportFile[] {
-  const { generateExpoProject } = require("./expoExport");
   return generateExpoProject(schema);
 }
 
@@ -948,4 +948,21 @@ export function downloadExport(files: ExportFile[], filename: string): void {
       URL.revokeObjectURL(url);
     });
   }
+}
+
+export function generateExportFiles(schema: any, format: ExportFormat = 'pwa'): ExportFile[] {
+  return generateExport(schema, { format });
+}
+
+export async function exportToZip(files: ExportFile[], filename: string): Promise<void> {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  files.forEach((file) => zip.file(file.path, file.content));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename || 'lotus-export'}.zip`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

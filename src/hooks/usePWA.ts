@@ -5,6 +5,7 @@ interface PWAState {
   isStandalone: boolean;
   deferredPrompt: BeforeInstallPromptEvent | null;
   install: () => Promise<boolean>;
+  dismiss: () => void;
 }
 
 // BeforeInstallPromptEvent is not in standard DOM types
@@ -44,5 +45,10 @@ export function usePWA(): PWAState {
     return outcome === 'accepted';
   }, [deferredPrompt]);
 
-  return { canInstall, isStandalone, deferredPrompt, install };
+  const dismiss = useCallback(() => {
+    setDeferredPrompt(null);
+    setCanInstall(false);
+  }, []);
+
+  return { canInstall, isStandalone, deferredPrompt, install, dismiss };
 }

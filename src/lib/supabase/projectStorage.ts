@@ -12,6 +12,15 @@ export interface Project {
   createdAt: number;
 }
 
+export interface ProjectRecord {
+  id: string;
+  name: string;
+  schema: AppSchema | null;
+  messages?: ChatMessage[];
+  created_at: string;
+  updated_at: string;
+}
+
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
@@ -35,6 +44,29 @@ export async function loadProjects(): Promise<Project[]> {
   if (error) { console.error('loadProjects error:', error); return [getDefaultProject()]; }
   if (!data || data.length === 0) return [getDefaultProject()];
   return data.map(dbToProject);
+}
+
+export async function loadUserProjects(userId: string): Promise<ProjectRecord[]> {
+  if (!userId) return [];
+  const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
+  if (error) {
+    console.error('loadUserProjects error:', error);
+    return [];
+  }
+  return (data || []) as ProjectRecord[];
+}
+
+export async function saveProject(userId: string, project: Pick<ProjectRecord, 'id' | 'name' | 'schema'> & { updated_at?: string }): Promise<void> {
+  if (!userId) return;
+  const payload = {
+    id: project.id,
+    user_id: userId,
+    name: project.name,
+    schema: project.schema,
+    updated_at: project.updated_at || new Date().toISOString(),
+  };
+  const { error } = await supabase.from('projects').upsert(payload);
+  if (error) throw error;
 }
 
 export async function createProject(name: string): Promise<Project> {
@@ -62,5 +94,5 @@ function getDefaultProject(): Project {
 }
 
 function getDefaultSchema(): AppSchema {
-  return { name: 'New App', screens: [{ id: 'home', name: 'Home', title: 'Home', components: [] }], navigation: { type: 'none' }, activeScreenId: 'home', theme: { primaryColor: '#E3B26D', backgroundColor: '#0a0a0a', textColor: '#F5EDE3' }, imageAssets: [] };
+  return { name: 'New App', screens: [{ id: 'home', name: 'Home', title: 'Home', components: [] }], navigation: { type: 'none' }, activeScreenId: 'home', theme: { primaryColor: '#E3B26D', backgroundColor: '#0a0a0a', textColor: '#F5EDE3' }, imageAssets: [], features: [] };
 }

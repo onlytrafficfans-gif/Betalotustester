@@ -32,3 +32,8 @@ export async function deleteUserSkill(userId: string, id: string): Promise<void>
   const { error } = await supabase.from('user_skills').delete().eq('id', id).eq('user_id', userId);
   if (error) console.error('deleteUserSkill error:', error);
 }
+
+export async function recordSkillUsage(userId: string, skillId: string): Promise<void> {
+  if (!userId || !skillId) return;
+  await supabase.from('skill_usage').insert({ user_id: userId, skill_id: skillId }).throwOnError();
+}

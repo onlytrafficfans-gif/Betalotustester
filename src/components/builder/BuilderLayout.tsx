@@ -73,7 +73,7 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
         }`}
       >
         {sidebarView === 'projects' ? (
-          <ProjectSidebar user={user} />
+          <ProjectSidebar />
         ) : (
           <SettingsPanel />
         )}
@@ -115,4 +115,8 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
       <FloatingToolbar />
     </div>
   );
+}
+
+export function useUserId(): string | undefined {
+  return useBuilderStore((state) => state._currentUser?.id);
 }

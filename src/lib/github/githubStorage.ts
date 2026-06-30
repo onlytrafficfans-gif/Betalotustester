@@ -130,3 +130,32 @@ export function removeSavedProject(owner: string, repo: string): void {
   );
   localStorage.setItem("lotus_github_projects", JSON.stringify(projects));
 }
+
+const tokenKey = (userId?: string) => `lotus_github_token_${userId || 'default'}`;
+const userKey = (userId?: string) => `lotus_github_user_${userId || 'default'}`;
+
+export async function saveGitHubToken(userId: string | undefined, token: string): Promise<void> {
+  localStorage.setItem(tokenKey(userId), token);
+  githubClient.setToken(token);
+}
+
+export async function clearGitHubToken(userId?: string): Promise<void> {
+  localStorage.removeItem(tokenKey(userId));
+  localStorage.removeItem(userKey(userId));
+  githubClient.clearToken();
+}
+
+export function loadGitHubUser(userId?: string): any | null {
+  const raw = localStorage.getItem(userKey(userId));
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function saveGitHubUser(userId: string | undefined, user: any): void {
+  localStorage.setItem(userKey(userId), JSON.stringify(user));
+}
+
+export async function hasGitHubToken(userId?: string): Promise<boolean> {
+  const token = localStorage.getItem(tokenKey(userId));
+  if (token) githubClient.setToken(token);
+  return !!token;
+}

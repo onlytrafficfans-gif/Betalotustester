@@ -25,3 +25,13 @@ export async function setThemeMode(userId: string, mode: 'dark' | 'light'): Prom
 export async function setHasSeenHints(userId: string): Promise<void> {
   await supabase.from('user_profiles').update({ has_seen_hints: true }).eq('id', userId);
 }
+
+export async function getProfile(userId: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
+  if (error) return null;
+  return data;
+}
+
+export async function updateProfile(userId: string, updates: Record<string, unknown>): Promise<void> {
+  await supabase.from('user_profiles').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', userId);
+}

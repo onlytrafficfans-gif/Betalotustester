@@ -36,7 +36,7 @@ import {
   Droplets,
   Footprints,
   Bike,
-  Swim,
+  Waves,
   TrendingUp,
   Award,
   Target,
@@ -85,7 +85,6 @@ import {
   ThumbsUp,
   MessageCircle,
   Repeat2,
-  BookmarkIcon,
   Flag,
   Ban,
   CircleUser,
@@ -138,7 +137,6 @@ import {
   PlusCircle,
   MinusCircle,
   XCircle,
-  HelpCircleIcon,
 } from "lucide-react";
 
 // Icon mapping for dynamic icon lookup
@@ -172,7 +170,7 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   droplets: Droplets,
   footprints: Footprints,
   bike: Bike,
-  swim: Swim,
+  swim: Waves,
   trending: TrendingUp,
   award: Award,
   target: Target,
@@ -1231,6 +1229,22 @@ export function renderAppSchema(schema: any): React.ReactNode {
           <BottomNavComponent />
         </div>
       )}
+    </div>
+  );
+}
+
+export function AppRenderer({
+  schema,
+  onNavigate,
+  isDesktop,
+}: {
+  schema: any;
+  onNavigate?: (screenId: string) => void;
+  isDesktop?: boolean;
+}) {
+  return (
+    <div className={isDesktop ? 'h-full w-full' : 'h-full w-full'} onClick={() => onNavigate?.(schema?.activeScreenId)}>
+      {renderAppSchema(schema)}
     </div>
   );
 }

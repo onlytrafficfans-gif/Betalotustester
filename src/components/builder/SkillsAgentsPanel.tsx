@@ -6,7 +6,7 @@ import { useUserId } from './BuilderLayout';
 import { loadUserSkills, saveUserSkill, deleteUserSkill } from '@/lib/supabase/skillsStorage';
 import { DEFAULT_SKILLS, parseSkillMarkdown, SKILL_CATEGORIES } from '@/lib/skills/skillsData';
 import type { Skill, SkillCategory, SkillType } from '@/lib/skills/skillsData';
-import { Sparkles, Bot, MessageSquare, Lock, UserCircle, Navigation, Smartphone, LayoutGrid, BarChart3, Type, Settings, Database, Moon, Palette, ShoppingCart, Dumbbell, Heart, Activity, Zap, ChevronRight, Upload, Search, Trash2, FileText, Wand2 } from 'lucide-react';
+import { Sparkles, Bot, MessageSquare, Lock, UserCircle, Navigation, Smartphone, LayoutGrid, BarChart3, Type, Settings, Database, Moon, Palette, ShoppingCart, Dumbbell, Heart, Activity, Zap, ChevronRight, Upload, Search, Trash2, FileText, Wand2, X } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   Sparkles: <Sparkles size={14} />, Bot: <Bot size={14} />, MessageSquare: <MessageSquare size={14} />, Lock: <Lock size={14} />, UserCircle: <UserCircle size={14} />, Navigation: <Navigation size={14} />, Smartphone: <Smartphone size={14} />, LayoutGrid: <LayoutGrid size={14} />, BarChart3: <BarChart3 size={14} />, Type: <Type size={14} />, Settings: <Settings size={14} />, Database: <Database size={14} />, Moon: <Moon size={14} />, Palette: <Palette size={14} />, ShoppingCart: <ShoppingCart size={14} />, Dumbbell: <Dumbbell size={14} />, Heart: <Heart size={14} />, Activity: <Activity size={14} />, Zap: <Zap size={14} />, FileText: <FileText size={14} />, Wand2: <Wand2 size={14} />,

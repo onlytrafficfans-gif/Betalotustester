@@ -6,7 +6,10 @@ import type { AppSchema } from '@/lib/builder/appSchema';
 import { AppRenderer } from '@/lib/builder/appRenderer';
 import { PhoneShell } from './PhoneShell';
 
-interface LivePreviewProps { schema: AppSchema; }
+interface LivePreviewProps {
+  schema: AppSchema;
+  onSchemaChange?: (schema: AppSchema) => void;
+}
 
 export function LivePreview({ schema }: LivePreviewProps) {
   const { previewDevice, setActiveScreen } = useBuilderStore();

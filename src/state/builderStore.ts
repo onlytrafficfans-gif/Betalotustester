@@ -1,34 +1,14 @@
-/**
- * Builder Store
- *
- * Zustand-based state for the app builder. Split into:
- * - Panel UI state (mobile tabs, sidebar, preview)
- * - Chat/history
- * - Projects (Supabase-backed)
- * - Providers (AI model configs)
- *
- * Persistence rules:
- * - Panel UI -> localStorage
- * - Providers -> localStorage + Supabase (if logged in)
- * - Projects -> Supabase only (if logged in), localStorage fallback
- * - Chat history -> per-project, stored in project record
- */
-
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type { AppSchema } from '@/lib/builder/appSchema';
-import { createEmptySchema } from '@/lib/builder/appSchema';
-import type { ExportFormat } from '@/lib/builder/exportGenerator';
-import { providerRegistry, defaultRegistry } from '@/lib/ai/initProviders';
-import { updateProfile, getProfile } from '@/lib/supabase/profileStorage';
-import { saveProject, loadUserProjects, deleteProject, type ProjectRecord } from '@/lib/supabase/projectStorage';
-import { recordSkillUsage, loadUserSkills } from '@/lib/supabase/skillsStorage';
-import type { Skill, PrebuiltSkill } from '@/lib/skills/skillsData';
-import { skillsLibrary } from '@/lib/skills/skillsData';
+import { createEmptySchema, mergeSchemaUpdates } from '@/lib/builder/appSchema';
+import { defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
+import { loadUserProjects, saveProject } from '@/lib/supabase/projectStorage';
+import { recordSkillUsage } from '@/lib/supabase/skillsStorage';
+import type { Skill } from '@/lib/skills/skillsData';
 
 export type SidebarView = 'projects' | 'settings';
-export type MobileTab = 'chat' | 'preview' | 'settings';
-
+export type MobileTab = 'chat' | 'preview' | 'settings' | 'projects' | 'skills';
 export type PreviewDevice = 'phone' | 'tablet' | 'desktop';
 
 export interface AIProviderConfig {
@@ -36,6 +16,7 @@ export interface AIProviderConfig {
   name: string;
   model: string;
   apiKey: string;
+  apiEndpoint: string;
 }
 
 export interface GenerationHistory {
@@ -54,46 +35,6 @@ interface Project {
   history: GenerationHistory[];
 }
 
-interface BuilderState {
-  // Panel UI
-  mobileTab: MobileTab;
-  sidebarView: SidebarView;
-  isSidebarOpen: boolean;
-  showSkillsPanel: boolean;
-  previewDevice: PreviewDevice;
-  showPreview: boolean;
-
-  // Chat
-  messages: ChatMessage[];
-  isLoading: boolean;
-  streamingMessage: string;
-
-  // Schema + History
-  schema: AppSchema;
-  historyIndex: number;
-  history: AppSchema[];
-  lastFailedPrompt: string | null;
-  lastFailedMessageId: string | null;
-
-  // Projects
-  projects: Project[];
-  currentProjectId: string | null;
-  isProjectsLoading: boolean;
-  _currentUser: { id: string; email: string; name?: string; avatar?: string } | null;
-
-  // Providers
-  providers: AIProviderConfig[];
-  providerId: string;
-
-  // Skills
-  installedSkills: Skill[];
-  activeSkillIds: string[];
-
-  // UI feedback
-  toast: { message: string; type: 'success' | 'error' | 'info' } | null;
-  generationStatus: 'idle' | 'generating' | 'applying' | 'success' | 'error';
-}
-
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -105,536 +46,422 @@ export interface ChatMessage {
   error?: string;
 }
 
+interface CurrentUser {
+  id: string;
+  email: string;
+  name?: string;
+  avatar?: string;
+}
+
+interface BuilderState {
+  mobileTab: MobileTab;
+  activePanel: string;
+  sidebarView: SidebarView;
+  isSidebarOpen: boolean;
+  sidebarOpen: boolean;
+  showSkillsPanel: boolean;
+  previewDevice: PreviewDevice;
+  showPreview: boolean;
+  messages: ChatMessage[];
+  isLoading: boolean;
+  streamingMessage: string;
+  error: string | null;
+  appliedChanges: Array<{ text: string }>;
+  schema: AppSchema;
+  historyIndex: number;
+  history: AppSchema[];
+  schemaHistory: AppSchema[];
+  lastFailedPrompt: string | null;
+  lastFailedMessageId: string | null;
+  projects: Project[];
+  project: Project | null;
+  currentProject: Project | null;
+  currentProjectId: string | null;
+  isProjectsLoading: boolean;
+  _currentUser: CurrentUser | null;
+  providers: AIProviderConfig[];
+  providerId: string;
+  selectedProvider: string;
+  apiKeys: Record<string, string>;
+  theme: 'dark' | 'light';
+  exportFormat: string;
+  installedSkills: Skill[];
+  activeSkillIds: string[];
+  toast: { message: string; type: 'success' | 'error' | 'info' } | null;
+  generationStatus: 'idle' | 'generating' | 'applying' | 'success' | 'error';
+}
+
 interface BuilderActions {
   setMobileTab: (tab: MobileTab) => void;
   setSidebarView: (view: SidebarView) => void;
   setSidebarOpen: (open: boolean) => void;
   setShowSkillsPanel: (show: boolean) => void;
+  toggleSkillsPanel: () => void;
   setPreviewDevice: (device: PreviewDevice) => void;
   setShowPreview: (show: boolean) => void;
-
+  togglePreview: () => void;
+  setActivePanel: (panel: string) => void;
+  toggleSidebar: () => void;
+  setCurrentUser: (user: CurrentUser | null) => void;
+  setCurrentProject: (project: any) => void;
+  clearProject: () => void;
+  addProject: (project: any) => void;
+  removeProject: (id: string) => void;
   createProject: (name: string) => Project;
+  createNewProject: (name?: string) => Project;
   loadProject: (id: string) => void;
+  switchProject: (id: string) => void;
   deleteProject: (id: string) => void;
+  renameProject: (id: string, name: string) => void;
   loadProjects: () => Promise<void>;
   saveCurrentProject: () => Promise<void>;
   migrateFromLocalStorage: () => Promise<number>;
-  setCurrentUser: (user: { id: string; email: string; name?: string; avatar?: string } | null) => void;
-
   sendMessage: (content: string) => Promise<void>;
-  addMessage: (msg: ChatMessage) => void;
+  retryLastMessage: () => Promise<void>;
+  addMessage: (msg: Omit<ChatMessage, 'id'> & { id?: string }) => void;
   clearMessages: () => void;
-
-  updateSchema: (fn: (s: AppSchema) => AppSchema) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearError: () => void;
+  dismissChanges: () => void;
+  updateSchema: (fn: ((s: AppSchema) => AppSchema) | AppSchema) => void;
   replaceSchema: (schema: AppSchema) => void;
   pushSchemaHistory: (schema: AppSchema) => void;
+  setActiveScreen: (screenId: string) => void;
   undo: () => void;
   redo: () => void;
-
+  resetCurrentProject: () => void;
   addProvider: (p: AIProviderConfig) => void;
+  addApiProvider: (userId: string, p: { id: string; name: string; apiKey: string; baseUrl: string; model: string }) => Promise<void>;
   removeProvider: (id: string) => void;
   setProviderId: (id: string) => void;
+  setProvider: (id: string) => void;
+  setApiKey: (id: string, apiKey: string) => void;
   switchProvider: (id: string) => void;
   refreshProviders: (userId: string) => Promise<void>;
-
   installSkill: (skill: Skill) => void;
   uninstallSkill: (id: string) => void;
   toggleSkill: (id: string) => void;
   useSkill: (id: string) => Promise<void>;
-
+  uploadImage: (file: File) => Promise<void>;
   showToast: (t: BuilderState['toast']) => void;
   clearToast: () => void;
-
+  setTheme: (theme: 'dark' | 'light') => void;
+  setExportFormat: (format: string) => void;
   resetStore: () => void;
 }
 
-const currentTimestamp = () => Date.now();
+const now = () => Date.now();
+const newId = () => (typeof globalThis.crypto?.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+
+function makeProject(name: string): Project {
+  const schema = createEmptySchema(name);
+  return { id: newId(), name, schema, createdAt: now(), updatedAt: now(), history: [] };
+}
+
+function withProjectSchema(project: Project | null, schema: AppSchema): Project | null {
+  return project ? { ...project, schema, updatedAt: now() } : null;
+}
+
+function extractSchema(content: string, fallbackName: string): AppSchema {
+  const patch = providerRegistry.parseSchemaFromResponse(content) as Partial<AppSchema>;
+  return mergeSchemaUpdates(createEmptySchema(fallbackName), patch);
+}
+
+function mockAssistantResponse(prompt: string): string {
+  const lower = prompt.toLowerCase();
+  const name = lower.includes('store') || lower.includes('shop') ? 'ShopEase' : lower.includes('fitness') ? 'FitPulse' : 'Mock Built App';
+  const schema = createEmptySchema(name);
+  schema.screens[0] = {
+    ...schema.screens[0],
+    components: [
+      { id: 'hero', type: 'text', props: {}, variant: 'title', content: name },
+      { id: 'body', type: 'text', props: {}, variant: 'body', content: 'Generated with the safe demo mock provider.' },
+      { id: 'action', type: 'button', props: {}, text: 'Open App', variant: 'primary' },
+    ],
+  };
+  return `Generated a safe demo preview.\n\n\`\`\`json\n${JSON.stringify(schema, null, 2)}\n\`\`\``;
+}
+
+const initialSchema = createEmptySchema();
 
 const useBuilderStore = create<BuilderState & BuilderActions>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
-        // === PANEL UI ===
         mobileTab: 'chat',
+        activePanel: 'chat',
         sidebarView: 'projects',
         isSidebarOpen: true,
+        sidebarOpen: true,
         showSkillsPanel: false,
         previewDevice: 'phone',
         showPreview: true,
-
-        // === CHAT ===
         messages: [],
         isLoading: false,
         streamingMessage: '',
-
-        // === SCHEMA + HISTORY ===
-        schema: createEmptySchema(),
+        error: null,
+        appliedChanges: [],
+        schema: initialSchema,
         historyIndex: 0,
-        history: [createEmptySchema()],
+        history: [initialSchema],
+        schemaHistory: [initialSchema],
         lastFailedPrompt: null,
         lastFailedMessageId: null,
-
-        // === PROJECTS ===
         projects: [],
+        project: null,
+        currentProject: null,
         currentProjectId: null,
         isProjectsLoading: false,
         _currentUser: null,
-
-        // === PROVIDERS ===
-        providers: [],
-        providerId: '',
-
-        // === SKILLS ===
+        providers: defaultRegistry,
+        providerId: 'mock',
+        selectedProvider: 'mock',
+        apiKeys: {},
+        theme: 'dark',
+        exportFormat: 'pwa',
         installedSkills: [],
         activeSkillIds: [],
-
-        // === UI FEEDBACK ===
         toast: null,
         generationStatus: 'idle',
 
-        // === PANEL UI ACTIONS ===
-        setMobileTab: (tab) => set({ mobileTab: tab }),
+        setMobileTab: (tab) => {
+          if (tab === 'projects' || tab === 'settings') set({ sidebarView: tab === 'projects' ? 'projects' : 'settings', isSidebarOpen: true });
+          if (tab === 'skills') set({ showSkillsPanel: true });
+          set({ mobileTab: tab, activePanel: tab });
+        },
         setSidebarView: (view) => set({ sidebarView: view }),
-        setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+        setSidebarOpen: (open) => set({ isSidebarOpen: open, sidebarOpen: open }),
         setShowSkillsPanel: (show) => set({ showSkillsPanel: show }),
+        toggleSkillsPanel: () => set({ showSkillsPanel: !get().showSkillsPanel }),
         setPreviewDevice: (device) => set({ previewDevice: device }),
         setShowPreview: (show) => set({ showPreview: show }),
-
-        // === SET CURRENT USER ===
-        setCurrentUser: (user) => {
-          set({ _currentUser: user });
-        },
-
-        // === PROJECT ACTIONS ===
-        createProject: (name) => {
-          const schema = createEmptySchema(name);
+        togglePreview: () => set({ showPreview: !get().showPreview }),
+        setActivePanel: (panel) => set({ activePanel: panel, mobileTab: ['chat', 'preview', 'settings', 'projects', 'skills'].includes(panel) ? panel as MobileTab : get().mobileTab }),
+        toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen, sidebarOpen: !get().isSidebarOpen }),
+        setCurrentUser: (user) => set({ _currentUser: user }),
+        setCurrentProject: (incoming) => {
           const project: Project = {
-            id: crypto.randomUUID(),
-            name,
-            schema,
-            createdAt: currentTimestamp(),
-            updatedAt: currentTimestamp(),
-            history: [],
+            id: incoming.id ?? newId(),
+            name: incoming.name ?? 'Untitled App',
+            schema: incoming.schema as AppSchema,
+            createdAt: typeof incoming.createdAt === 'number' ? incoming.createdAt : new Date(incoming.createdAt ?? Date.now()).getTime(),
+            updatedAt: typeof incoming.updatedAt === 'number' ? incoming.updatedAt : new Date(incoming.updatedAt ?? Date.now()).getTime(),
+            history: incoming.history ?? [],
           };
+          set({ project, currentProject: project, currentProjectId: project.id, schema: project.schema });
+        },
+        clearProject: () => set({ project: null, currentProject: null, currentProjectId: null }),
+        addProject: (incoming) => {
+          const project: Project = {
+            id: incoming.id ?? newId(),
+            name: incoming.name ?? 'Untitled App',
+            schema: incoming.schema as AppSchema,
+            createdAt: typeof incoming.createdAt === 'number' ? incoming.createdAt : new Date(incoming.createdAt ?? Date.now()).getTime(),
+            updatedAt: typeof incoming.updatedAt === 'number' ? incoming.updatedAt : new Date(incoming.updatedAt ?? Date.now()).getTime(),
+            history: incoming.history ?? [],
+          };
+          set({ projects: [...get().projects, project] });
+        },
+        removeProject: (id) => get().deleteProject(id),
+
+        createProject: (name) => {
+          const project = makeProject(name);
           set({
-            projects: [...get().projects, project],
+            projects: [project, ...get().projects],
+            project,
+            currentProject: project,
             currentProjectId: project.id,
-            schema,
-            history: [schema],
+            schema: project.schema,
+            history: [project.schema],
+            schemaHistory: [project.schema],
             historyIndex: 0,
             messages: [],
           });
+          void get().saveCurrentProject();
           return project;
         },
-
+        createNewProject: (name = 'Untitled App') => get().createProject(name),
         loadProject: (id) => {
           const project = get().projects.find((p) => p.id === id);
           if (!project) return;
-          set({
-            currentProjectId: id,
-            schema: project.schema,
-            history: [project.schema],
-            historyIndex: 0,
-            messages: [],
-          });
+          set({ project, currentProjectId: id, schema: project.schema, history: [project.schema], schemaHistory: [project.schema], historyIndex: 0, messages: [] });
+          set({ currentProject: project });
         },
-
+        switchProject: (id) => get().loadProject(id),
         deleteProject: (id) => {
-          set({
-            projects: get().projects.filter((p) => p.id !== id),
-            currentProjectId: get().currentProjectId === id ? null : get().currentProjectId,
-          });
+          const projects = get().projects.filter((p) => p.id !== id);
+          const project = get().currentProjectId === id ? projects[0] ?? null : get().project;
+          set({ projects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? createEmptySchema() });
         },
-
+        renameProject: (id, name) => {
+          const trimmed = name.trim();
+          if (!trimmed) return;
+          const projects = get().projects.map((p) => p.id === id ? { ...p, name: trimmed, updatedAt: now(), schema: { ...p.schema, name: trimmed } } : p);
+          const project = projects.find((p) => p.id === get().currentProjectId) ?? null;
+          set({ projects, project, currentProject: project, schema: project?.schema ?? get().schema });
+          void get().saveCurrentProject();
+        },
         loadProjects: async () => {
           const user = get()._currentUser;
           if (!user) return;
           set({ isProjectsLoading: true });
           try {
             await get().refreshProviders(user.id);
-            const remoteProjects = await loadUserProjects(user.id);
-            const localProjects = get().projects;
-            const merged = [...localProjects];
-            for (const rp of remoteProjects) {
-              const existing = merged.find((p) => p.id === rp.id);
-              if (existing) {
-                existing.name = rp.name;
-                existing.schema = rp.schema as AppSchema;
-                existing.updatedAt = new Date(rp.updated_at).getTime();
-              } else {
-                merged.push({
-                  id: rp.id,
-                  name: rp.name,
-                  schema: rp.schema as AppSchema,
-                  createdAt: new Date(rp.created_at).getTime(),
-                  updatedAt: new Date(rp.updated_at).getTime(),
-                  history: [],
-                });
-              }
-            }
-            set({ projects: merged, isProjectsLoading: false });
-          } catch (e) {
-            console.error('[LOTUS] Failed to load projects:', e);
+            const remote = await loadUserProjects(user.id);
+            const projects = remote.map((p) => ({
+              id: p.id,
+              name: p.name,
+              schema: p.schema ?? createEmptySchema(p.name),
+              createdAt: new Date(p.created_at).getTime(),
+              updatedAt: new Date(p.updated_at).getTime(),
+              history: [],
+            }));
+            const finalProjects = projects.length > 0 ? projects : get().projects;
+            const project = get().currentProjectId ? finalProjects.find((p) => p.id === get().currentProjectId) ?? finalProjects[0] ?? null : finalProjects[0] ?? null;
+            set({ projects: finalProjects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? get().schema, isProjectsLoading: false });
+          } catch (error) {
+            console.error('[LOTUS] Failed to load projects:', error);
             set({ isProjectsLoading: false });
           }
         },
-
         saveCurrentProject: async () => {
-          const state = get();
-          if (!state._currentUser || !state.currentProjectId) return;
-          const project = state.projects.find((p) => p.id === state.currentProjectId);
-          if (!project) return;
-          try {
-            await saveProject(state._currentUser.id, {
-              id: project.id,
-              name: project.name,
-              schema: project.schema,
-              updated_at: new Date().toISOString(),
-            });
-          } catch (e) {
-            console.error('[LOTUS] Failed to save project:', e);
-          }
+          const user = get()._currentUser;
+          const project = get().project;
+          if (!user || !project) return;
+          await saveProject(user.id, { id: project.id, name: project.name, schema: project.schema });
         },
+        migrateFromLocalStorage: async () => 0,
 
-        migrateFromLocalStorage: async () => {
-          const keys = Object.keys(localStorage).filter((k) => k.startsWith('lotus_project_'));
-          let migrated = 0;
-          for (const key of keys) {
-            try {
-              const data = JSON.parse(localStorage.getItem(key) || '{}');
-              if (data.name && data.schema) {
-                get().createProject(data.name);
-                migrated++;
-              }
-            } catch {
-              // skip
-            }
-          }
-          return migrated;
-        },
-
-        // === CHAT ACTIONS ===
-        sendMessage: async (content: string) => {
-          const state = get();
-          if (state.isLoading) return;
-
-          const currentProvider = state.providers.find((p) => p.id === state.providerId);
-          if (!currentProvider) {
-            const noProviderMsg: ChatMessage = {
-              id: crypto.randomUUID(),
-              role: 'system',
-              content: 'No AI provider configured. Add an API key in Settings.',
-              timestamp: currentTimestamp(),
-            };
-            set({ messages: [...state.messages, noProviderMsg] });
-            return;
-          }
-
-          const userMsg: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: 'user',
-            content,
-            timestamp: currentTimestamp(),
-          };
+        sendMessage: async (content) => {
+          if (get().isLoading) return;
+          const userMsg: ChatMessage = { id: newId(), role: 'user', content, timestamp: now() };
+          const assistantId = newId();
           set({
-            messages: [...get().messages, userMsg],
+            messages: [...get().messages, userMsg, { id: assistantId, role: 'assistant', content: '', timestamp: now(), isStreaming: true }],
             isLoading: true,
+            error: null,
             generationStatus: 'generating',
             lastFailedPrompt: null,
             lastFailedMessageId: null,
           });
-
-          const assistantId = crypto.randomUUID();
-          set({
-            messages: [
-              ...get().messages,
-              {
-                id: assistantId,
-                role: 'assistant',
-                content: '',
-                timestamp: currentTimestamp(),
-                isStreaming: true,
-              },
-            ],
-            streamingMessage: '',
-          });
-
           try {
-            const response = await fetch(currentProvider.apiEndpoint, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${currentProvider.apiKey}`,
-              },
-              body: JSON.stringify({
-                model: currentProvider.model,
-                messages: [
-                  { role: 'system', content: providerRegistry.getSystemPrompt(currentProvider.model) },
-                  ...get().messages
-                    .filter((m) => m.role === 'user' || m.role === 'assistant')
-                    .slice(-10)
-                    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-                  { role: 'user', content },
-                ],
-                stream: true,
-              }),
-            });
-
-            if (!response.ok) {
-              throw new Error(`API error: ${response.status}`);
-            }
-
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error('No response body');
-
+            const provider = get().providers.find((p) => p.id === get().providerId) ?? defaultRegistry[0];
             let fullContent = '';
-            const decoder = new TextDecoder();
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value, { stream: true });
-              const lines = chunk.split('\n').filter((l) => l.trim());
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6);
-                  if (data === '[DONE]') continue;
-                  try {
-                    const parsed = JSON.parse(data);
-                    const content = parsed.choices?.[0]?.delta?.content || '';
-                    fullContent += content;
-                    set({ streamingMessage: fullContent });
-                  } catch {
-                    // skip parse errors in stream
-                  }
-                }
-              }
+            if (provider.id === 'mock' || !provider.apiEndpoint) {
+              fullContent = mockAssistantResponse(content);
+            } else {
+              const response = await fetch(provider.apiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
+                body: JSON.stringify({
+                  model: provider.model,
+                  messages: [
+                    { role: 'system', content: providerRegistry.getSystemPrompt() },
+                    { role: 'user', content },
+                  ],
+                }),
+              });
+              if (!response.ok) throw new Error(`API error: ${response.status}`);
+              const data = await response.json();
+              fullContent = data.choices?.[0]?.message?.content ?? JSON.stringify(data);
             }
-
-            const schemaPatch = providerRegistry.parseSchemaFromResponse(
-              currentProvider.model,
-              fullContent
-            );
-
-            set({ generationStatus: 'applying' });
-
-            const currentSchema = get().schema;
-            const updatedSchema = { ...currentSchema };
-            if (schemaPatch.screens) {
-              updatedSchema.screens = schemaPatch.screens.map(
-                (s: any) => ({
-                  ...s,
-                  components: s.components || [],
-                })
-              );
-            }
-            if (schemaPatch.theme) {
-              updatedSchema.theme = { ...currentSchema.theme, ...schemaPatch.theme };
-            }
-            if (schemaPatch.features) {
-              updatedSchema.features = schemaPatch.features;
-            }
-
-            const changesSummary = `${schemaPatch.screens?.length || 0} screens, ${schemaPatch.features?.length || 0} features`;
-
+            const updatedSchema = extractSchema(fullContent, get().schema.name);
+            const changesSummary = `${updatedSchema.screens.length} screen${updatedSchema.screens.length === 1 ? '' : 's'} updated`;
             get().pushSchemaHistory(updatedSchema);
-
-            set((s) => ({
-              messages: s.messages.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: fullContent,
-                      isStreaming: false,
-                      changesSummary,
-                      schemaSnapshot: updatedSchema,
-                    }
-                  : m
-              ),
+            set((state) => ({
+              messages: state.messages.map((m) => m.id === assistantId ? { ...m, content: fullContent, isStreaming: false, changesSummary, schemaSnapshot: updatedSchema } : m),
               streamingMessage: '',
               isLoading: false,
               generationStatus: 'success',
-              schema: updatedSchema,
+              appliedChanges: [{ text: changesSummary }],
+              project: withProjectSchema(state.project, updatedSchema),
             }));
-
-            // Persist
-            const state2 = get();
-            if (state2._currentUser && state2.currentProjectId) {
-              await get().saveCurrentProject();
-            }
-          } catch (error: any) {
-            console.error('[LOTUS] Generation failed:', error);
-            set((s) => ({
-              messages: s.messages.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: 'Sorry, generation failed. Please check your API key and try again.',
-                      isStreaming: false,
-                      error: error.message || 'Unknown error',
-                    }
-                  : m
-              ),
-              streamingMessage: '',
+            void get().saveCurrentProject();
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            set((state) => ({
+              messages: state.messages.map((m) => m.id === assistantId ? { ...m, content: 'Generation failed. Check provider settings or switch to Demo Mock.', isStreaming: false, error: message } : m),
               isLoading: false,
               generationStatus: 'error',
+              error: message,
               lastFailedPrompt: content,
               lastFailedMessageId: assistantId,
             }));
           }
         },
-
-        addMessage: (msg) =>
-          set({ messages: [...get().messages, msg] }),
-
+        retryLastMessage: async () => {
+          const prompt = get().lastFailedPrompt;
+          if (prompt) await get().sendMessage(prompt);
+        },
+        addMessage: (msg) => set({ messages: [...get().messages, { id: msg.id ?? newId(), ...msg }] }),
         clearMessages: () => set({ messages: [] }),
+        setLoading: (isLoading) => set({ isLoading }),
+        clearError: () => set({ error: null }),
+        setError: (error) => set({ error }),
+        dismissChanges: () => set({ appliedChanges: [] }),
 
-        // === SCHEMA ACTIONS ===
-        updateSchema: (fn) => {
-          const newSchema = fn(get().schema);
-          set({ schema: newSchema });
-        },
-
-        replaceSchema: (schema) => {
-          set({ schema, history: [schema], historyIndex: 0 });
-        },
-
+        updateSchema: (fn) => get().replaceSchema(typeof fn === 'function' ? fn(get().schema) : fn),
+        replaceSchema: (schema) => set({ schema, project: withProjectSchema(get().project, schema), currentProject: withProjectSchema(get().project, schema), history: [schema], schemaHistory: [schema], historyIndex: 0 }),
         pushSchemaHistory: (schema) => {
-          const state = get();
-          const newHistory = state.history.slice(0, state.historyIndex + 1);
-          newHistory.push(schema);
-          set({
-            history: newHistory,
-            historyIndex: newHistory.length - 1,
-            schema,
-          });
+          const next = get().history.slice(0, get().historyIndex + 1);
+          next.push(schema);
+          const project = withProjectSchema(get().project, schema);
+          set({ history: next, schemaHistory: next, historyIndex: next.length - 1, schema, project, currentProject: project });
         },
-
+        setActiveScreen: (screenId) => set({ schema: { ...get().schema, activeScreenId: screenId } }),
         undo: () => {
-          const state = get();
-          if (state.historyIndex <= 0) return;
-          const newIndex = state.historyIndex - 1;
-          set({ historyIndex: newIndex, schema: state.history[newIndex] });
+          const index = get().historyIndex - 1;
+          if (index < 0) return;
+          set({ historyIndex: index, schema: get().history[index] });
         },
-
         redo: () => {
-          const state = get();
-          if (state.historyIndex >= state.history.length - 1) return;
-          const newIndex = state.historyIndex + 1;
-          set({ historyIndex: newIndex, schema: state.history[newIndex] });
+          const index = get().historyIndex + 1;
+          if (index >= get().history.length) return;
+          set({ historyIndex: index, schema: get().history[index] });
         },
+        resetCurrentProject: () => get().replaceSchema(createEmptySchema(get().project?.name ?? 'New App')),
 
-        // === PROVIDER ACTIONS ===
-        addProvider: (p) => {
-          const providers = [...get().providers, p];
-          const isFirst = providers.length === 1;
-          set({
-            providers,
-            providerId: isFirst ? p.id : get().providerId,
-          });
-        },
-
+        addProvider: (provider) => set({ providers: [...get().providers.filter((p) => p.id !== provider.id), provider], providerId: provider.id, selectedProvider: provider.id }),
+        addApiProvider: async (_userId, provider) => get().addProvider({ id: provider.id, name: provider.name, apiKey: provider.apiKey, model: provider.model, apiEndpoint: provider.baseUrl }),
         removeProvider: (id) => {
           const providers = get().providers.filter((p) => p.id !== id);
-          set({
-            providers,
-            providerId: providers.length > 0 ? providers[0].id : '',
-          });
+          set({ providers, providerId: providers[0]?.id ?? 'mock', selectedProvider: providers[0]?.id ?? 'mock' });
+        },
+        setProviderId: (id) => set({ providerId: id, selectedProvider: id }),
+        setProvider: (id) => set({ providerId: id, selectedProvider: id }),
+        setApiKey: (id, apiKey) => set({ apiKeys: { ...get().apiKeys, [id]: apiKey } }),
+        switchProvider: (id) => set({ providerId: id, selectedProvider: id }),
+        refreshProviders: async () => {
+          if (get().providers.length === 0) set({ providers: defaultRegistry, providerId: 'mock' });
         },
 
-        setProviderId: (id) => set({ providerId: id }),
-
-        switchProvider: (id) => set({ providerId: id }),
-
-        refreshProviders: async (userId) => {
-          try {
-            const profile = await getProfile(userId);
-            if (profile?.ai_providers) {
-              const remoteProviders = JSON.parse(profile.ai_providers as string);
-              if (Array.isArray(remoteProviders) && remoteProviders.length > 0) {
-                const existing = get().providers;
-                const merged = [...existing];
-                for (const rp of remoteProviders) {
-                  if (!merged.find((p) => p.id === rp.id)) {
-                    merged.push(rp);
-                  }
-                }
-                const newId = get().providerId || merged[0]?.id || '';
-                set({ providers: merged, providerId: newId });
-                return;
-              }
-            }
-          } catch {
-            // fallback to localStorage (handled by persist middleware)
-          }
-          const local = get().providers;
-          if (local.length === 0) {
-            // seed with one default provider
-            set({ providers: defaultRegistry, providerId: defaultRegistry[0]?.id || '' });
-          }
-        },
-
-        // === SKILL ACTIONS ===
-        installSkill: (skill) => {
-          const existing = get().installedSkills.find((s) => s.id === skill.id);
-          if (!existing) {
-            set({ installedSkills: [...get().installedSkills, skill] });
-          }
-        },
-
-        uninstallSkill: (id) => {
-          set({
-            installedSkills: get().installedSkills.filter((s) => s.id !== id),
-            activeSkillIds: get().activeSkillIds.filter((sid) => sid !== id),
-          });
-        },
-
-        toggleSkill: (id) => {
-          const active = get().activeSkillIds;
-          if (active.includes(id)) {
-            set({ activeSkillIds: active.filter((sid) => sid !== id) });
-          } else {
-            set({ activeSkillIds: [...active, id] });
-          }
-        },
-
+        installSkill: (skill) => set({ installedSkills: [...get().installedSkills.filter((s) => s.id !== skill.id), skill] }),
+        uninstallSkill: (id) => set({ installedSkills: get().installedSkills.filter((s) => s.id !== id), activeSkillIds: get().activeSkillIds.filter((sid) => sid !== id) }),
+        toggleSkill: (id) => set({ activeSkillIds: get().activeSkillIds.includes(id) ? get().activeSkillIds.filter((sid) => sid !== id) : [...get().activeSkillIds, id] }),
         useSkill: async (id) => {
           const skill = get().installedSkills.find((s) => s.id === id);
           if (!skill) return;
-          set({ isLoading: true });
-          try {
-            if (get()._currentUser) {
-              await recordSkillUsage(get()._currentUser.id, skill.id);
-            }
-          } catch {
-            // non-critical
-          }
-          await get().sendMessage(skill.systemPrompt);
-          set({ isLoading: false });
+          const user = get()._currentUser;
+          if (user) await recordSkillUsage(user.id, skill.id).catch(() => undefined);
+          await get().sendMessage(skill.prompt);
         },
-
-        // === TOAST ===
-        showToast: (t) => set({ toast: t }),
-        clearToast: () => set({ toast: null }),
-
-        // === RESET ===
-        resetStore: () => {
-          set({
-            messages: [],
-            isLoading: false,
-            streamingMessage: '',
-            schema: createEmptySchema(),
-            history: [createEmptySchema()],
-            historyIndex: 0,
-            currentProjectId: null,
-            projects: [],
-            providers: [],
-            providerId: '',
-            toast: null,
-            generationStatus: 'idle',
-            lastFailedPrompt: null,
-            lastFailedMessageId: null,
+        uploadImage: async (file) => {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
           });
+          get().replaceSchema({ ...get().schema, imageAssets: [...(get().schema.imageAssets ?? []), { id: newId(), name: file.name, dataUrl, mimeType: file.type }] });
+        },
+        showToast: (toast) => set({ toast }),
+        clearToast: () => set({ toast: null }),
+        setTheme: (theme) => set({ theme }),
+        setExportFormat: (exportFormat) => set({ exportFormat }),
+        resetStore: () => {
+          const schema = createEmptySchema();
+          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, currentProject: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, sidebarOpen: true, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
         },
       }),
       {
@@ -649,11 +476,20 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           installedSkills: state.installedSkills,
           activeSkillIds: state.activeSkillIds,
           projects: state.projects,
+          project: state.project,
+          currentProject: state.currentProject,
           currentProjectId: state.currentProjectId,
           schema: state.schema,
           history: state.history,
+          schemaHistory: state.schemaHistory,
           historyIndex: state.historyIndex,
           messages: state.messages,
+          activePanel: state.activePanel,
+          sidebarOpen: state.sidebarOpen,
+          selectedProvider: state.selectedProvider,
+          apiKeys: state.apiKeys,
+          theme: state.theme,
+          exportFormat: state.exportFormat,
         }),
       }
     )
@@ -661,4 +497,4 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
 );
 
 export { useBuilderStore };
-export type { BuilderState, BuilderActions, Project, GenerationHistory };
+export type { BuilderState, BuilderActions, Project };

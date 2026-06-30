@@ -11,6 +11,7 @@ export interface GitHubRepo {
   id: number;
   name: string;
   full_name: string;
+  owner: { login: string };
   description: string | null;
   private: boolean;
   html_url: string;
@@ -268,4 +269,27 @@ export async function getTokenScopes(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export async function verifyToken(): Promise<any> {
+  return githubClient.getUser();
+}
+
+export async function listRepos(): Promise<GitHubRepo[]> {
+  return githubClient.listRepos(1, 100);
+}
+
+export async function createRepo(name: string, description?: string, isPrivate = false): Promise<GitHubRepo> {
+  return githubClient.createRepo({ name, description, private: isPrivate, auto_init: true });
+}
+
+export async function exportToRepo(owner: string, repo: string, files: Array<{ path: string; content: string }>): Promise<void> {
+  for (const file of files) {
+    await githubClient.createOrUpdateFile(owner, repo, file.path, file.content, `Export ${file.path} from LOTUS`);
+  }
+}
+
+export async function importFromRepo(owner: string, repo: string): Promise<Array<{ path: string; content: string }>> {
+  const file = await githubClient.getFileContents(owner, repo, 'lotus-app.json');
+  return [{ path: 'lotus-app.json', content: atob(file.content.replace(/\s/g, '')) }];
 }

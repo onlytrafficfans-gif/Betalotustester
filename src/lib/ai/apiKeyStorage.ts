@@ -56,3 +56,13 @@ export function maskKey(key: string): string {
   if (!key || key.length <= 12) return '****';
   return `${key.slice(0, 6)}...${key.slice(-4)}`;
 }
+
+export function getApiKey(providerId: string): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(`lotus_api_key_${providerId}`);
+}
+
+export function setApiKey(providerId: string, apiKey: string): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(`lotus_api_key_${providerId}`, apiKey);
+}
