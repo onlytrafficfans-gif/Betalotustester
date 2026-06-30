@@ -2,6 +2,7 @@
  * FloatingToolbar — actions always visible
  */
 import { useBuilderStore } from '@/state/builderStore';
+import { generateExportFiles, exportToZip } from '@/lib/builder/exportGenerator';
 import { Undo2, Redo2, Smartphone, Tablet, Monitor, Download, Upload, MessageSquare, RotateCcw, Play } from 'lucide-react';
 
 interface IconButtonProps {
@@ -40,14 +41,22 @@ export function FloatingToolbar() {
     showPreview,
     setShowPreview,
     setMobileTab,
+    schema,
+    showToast,
   } = useBuilderStore();
 
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
-  const handleExport = () => {
-    // Will be implemented
-    console.log('[LOTUS] Export project');
+  const handleExport = async () => {
+    try {
+      const files = generateExportFiles(schema);
+      await exportToZip(files, schema.name || 'lotus-export');
+      showToast({ type: 'success', message: 'Export zip ready' });
+    } catch (error) {
+      console.error('[LOTUS] Export failed:', error);
+      showToast({ type: 'error', message: 'Export failed. Try again.' });
+    }
   };
 
   return (
@@ -106,7 +115,7 @@ export function FloatingToolbar() {
         <ToolbarButton
           icon={<Upload size={13} />}
           label="Import"
-          onClick={() => { /* TODO */ }}
+          onClick={() => setMobileTab('projects')}
         />
         {/* Chat - always visible on desktop, click focuses the chat input */}
         <ToolbarButton

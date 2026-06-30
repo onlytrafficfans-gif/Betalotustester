@@ -46,7 +46,7 @@ export function ChatInput() {
   }, [input]);
 
   return (
-    <div className="shrink-0 border-t border-white/[0.04] bg-[#0a0a0a] px-4 py-3">
+    <div className="relative shrink-0 border-t border-white/[0.04] bg-[#0a0a0a] px-4 py-3">
       {/* Model picker dropdown */}
       {showModelPicker && (
         <div className="absolute bottom-full left-4 mb-2 w-56 bg-[#141414] border border-white/[0.06] rounded-xl shadow-2xl overflow-hidden z-50">

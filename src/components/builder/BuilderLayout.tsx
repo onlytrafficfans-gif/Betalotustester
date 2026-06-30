@@ -60,6 +60,8 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
 
   const showChat = mobileTab === 'chat';
   const showPreviewPane = mobileTab === 'preview';
+  const showMobileProjects = mobileTab === 'projects';
+  const showMobileSettings = mobileTab === 'settings';
 
   return (
     <div className="h-full flex bg-[#050505] overflow-hidden">
@@ -68,7 +70,7 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
 
       {/* Left sidebar */}
       <aside
-        className={`shrink-0 h-full border-r border-white/[0.04] transition-all duration-200 ${
+        className={`hidden md:block shrink-0 h-full border-r border-white/[0.04] transition-all duration-200 ${
           isSidebarOpen ? 'w-[250px] opacity-100' : 'w-0 opacity-0 overflow-hidden'
         }`}
       >
@@ -92,6 +94,20 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
         </div>
         <MobileTabs />
       </main>
+
+      {/* Mobile project/settings panels */}
+      <section
+        className={`flex-1 min-w-0 bg-[#0a0a0a] ${
+          showMobileProjects || showMobileSettings ? 'flex md:hidden' : 'hidden'
+        }`}
+      >
+        <div className="flex min-h-0 w-full flex-col">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {showMobileProjects ? <ProjectSidebar /> : <SettingsPanel />}
+          </div>
+          <MobileTabs />
+        </div>
+      </section>
 
       {/* Preview */}
       <section

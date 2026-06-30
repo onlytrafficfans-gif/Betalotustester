@@ -4,6 +4,7 @@ import type { AppSchema } from '@/lib/builder/appSchema';
 import { createEmptySchema, mergeSchemaUpdates } from '@/lib/builder/appSchema';
 import { defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
 import { loadUserProjects, saveProject } from '@/lib/supabase/projectStorage';
+import { deleteProject as deleteStoredProject } from '@/lib/supabase/projectStorage';
 import { recordSkillUsage } from '@/lib/supabase/skillsStorage';
 import type { Skill } from '@/lib/skills/skillsData';
 
@@ -290,9 +291,11 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         },
         switchProject: (id) => get().loadProject(id),
         deleteProject: (id) => {
+          const user = get()._currentUser;
           const projects = get().projects.filter((p) => p.id !== id);
           const project = get().currentProjectId === id ? projects[0] ?? null : get().project;
           set({ projects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? createEmptySchema() });
+          if (user) void deleteStoredProject(id).catch((error) => console.error('[LOTUS] Failed to delete project remotely:', error));
         },
         renameProject: (id, name) => {
           const trimmed = name.trim();
