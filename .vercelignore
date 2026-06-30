@@ -1,0 +1,16 @@
+node_modules
+.git
+.env.local
+.env.*.local
+.DS_Store
+*.log
+tests
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+vitest.config.ts
+LOTUS_demo_readiness_audit.pdf
+STABILIZATION_AUDIT_REPORT.md
+DEMO_VERIFICATION.md
+icons_LOTUS功能修复.zip
