@@ -3,8 +3,8 @@ import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type { AppSchema } from '@/lib/builder/appSchema';
 import { createEmptySchema, mergeSchemaUpdates } from '@/lib/builder/appSchema';
 import { defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
-import { loadUserProjects, saveProject } from '@/lib/supabase/projectStorage';
-import { deleteProject as deleteStoredProject } from '@/lib/supabase/projectStorage';
+import { loadStoredProviders } from '@/lib/ai/apiKeyStorage';
+import { loadUserProjects, saveProject, deleteProject as deleteStoredProject } from '@/lib/supabase/projectStorage';
 import { recordSkillUsage } from '@/lib/supabase/skillsStorage';
 import type { Skill } from '@/lib/skills/skillsData';
 
@@ -295,7 +295,10 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           const projects = get().projects.filter((p) => p.id !== id);
           const project = get().currentProjectId === id ? projects[0] ?? null : get().project;
           set({ projects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? createEmptySchema() });
-          if (user) void deleteStoredProject(id).catch((error) => console.error('[LOTUS] Failed to delete project remotely:', error));
+          if (user) void deleteStoredProject(id).catch((error) => {
+            console.error('[LOTUS] Failed to delete project remotely:', error);
+            set({ error: 'Project was removed locally, but remote deletion failed. Check Supabase project settings.' });
+          });
         },
         renameProject: (id, name) => {
           const trimmed = name.trim();
@@ -332,7 +335,12 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           const user = get()._currentUser;
           const project = get().project;
           if (!user || !project) return;
-          await saveProject(user.id, { id: project.id, name: project.name, schema: project.schema });
+          try {
+            await saveProject(user.id, { id: project.id, name: project.name, schema: project.schema });
+          } catch (error) {
+            console.error('[LOTUS] Failed to save project remotely:', error);
+            set({ error: 'Project changes are local only. Supabase project storage could not be reached.' });
+          }
         },
         migrateFromLocalStorage: async () => 0,
 
@@ -435,8 +443,28 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setProvider: (id) => set({ providerId: id, selectedProvider: id }),
         setApiKey: (id, apiKey) => set({ apiKeys: { ...get().apiKeys, [id]: apiKey } }),
         switchProvider: (id) => set({ providerId: id, selectedProvider: id }),
-        refreshProviders: async () => {
-          if (get().providers.length === 0) set({ providers: defaultRegistry, providerId: 'mock' });
+        refreshProviders: async (userId) => {
+          try {
+            const storedProviders = await loadStoredProviders(userId);
+            const configuredProviders = storedProviders
+              .filter((provider) => provider.apiKey && provider.apiKey.length > 10)
+              .map((provider) => ({
+                id: provider.id,
+                name: provider.name,
+                apiKey: provider.apiKey,
+                model: provider.model,
+                apiEndpoint: provider.baseUrl,
+              }));
+            const providers = [
+              ...defaultRegistry,
+              ...configuredProviders.filter((provider) => !defaultRegistry.some((preset) => preset.id === provider.id)),
+            ];
+            const providerId = providers.some((provider) => provider.id === get().providerId) ? get().providerId : 'mock';
+            set({ providers, providerId, selectedProvider: providerId });
+          } catch (error) {
+            console.error('[LOTUS] Failed to refresh AI providers:', error);
+            if (get().providers.length === 0) set({ providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock' });
+          }
         },
 
         installSkill: (skill) => set({ installedSkills: [...get().installedSkills.filter((s) => s.id !== skill.id), skill] }),

@@ -19,6 +19,62 @@ interface ExportFile {
   content: string;
 }
 
+function getActiveScreen(schema: any) {
+  if (!Array.isArray(schema?.screens) || schema.screens.length === 0) return null;
+  return (
+    schema.screens.find((screen: any) => screen.id === schema.activeScreenId) ||
+    schema.screens.find((screen: any) => screen.name === schema.activeScreenId) ||
+    schema.screens[0]
+  );
+}
+
+function getComponentValue(component: any, field: string) {
+  return component?.[field] ?? component?.props?.[field];
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function resolveImageSource(component: any, schema: any): string | undefined {
+  const direct = getComponentValue(component, "src");
+  if (typeof direct === "string" && direct.startsWith("data:")) return direct;
+
+  const image = getComponentValue(component, "image");
+  if (typeof image === "string" && image.startsWith("data:")) return image;
+
+  const assetId =
+    getComponentValue(component, "assetId") ||
+    getComponentValue(component, "imageAssetId") ||
+    (typeof direct === "string" ? direct : undefined) ||
+    (typeof image === "string" ? image : undefined);
+
+  const asset = schema?.imageAssets?.find((item: any) => item.id === assetId || item.name === assetId);
+  return asset?.dataUrl;
+}
+
+function renderImageHtml(src: string | undefined, alt: string, height: number): string {
+  if (src) {
+    return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" style="width: 100%; height: ${height}px; object-fit: cover; border-radius: 16px; background: #f3f4f6; margin-bottom: 12px;" />`;
+  }
+  return `<div style="width: 100%; height: ${height}px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #9ca3af; margin-bottom: 12px;">[Image]</div>`;
+}
+
+function generateIconSvg(appName: string, theme: any): string {
+  const primaryColor = escapeHtml(theme.primaryColor || "#6366f1");
+  const label = escapeHtml((appName || "L").trim().slice(0, 1).toUpperCase());
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <circle cx="256" cy="256" r="164" fill="${primaryColor}" opacity="0.18"/>
+  <path d="M256 104c58 58 88 110 88 156 0 55-40 94-88 94s-88-39-88-94c0-46 30-98 88-156z" fill="${primaryColor}"/>
+  <text x="256" y="425" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700" fill="#fff">${label}</text>
+</svg>`;
+}
+
 /**
  * Generate a complete export package for an app schema
  */
@@ -59,7 +115,7 @@ function generatePWAExport(schema: any): ExportFile[] {
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>${appName}</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <style>
     ${generateCSS(theme)}
   </style>
@@ -93,8 +149,7 @@ function generatePWAExport(schema: any): ExportFile[] {
         background_color: theme.backgroundColor || "#ffffff",
         theme_color: theme.primaryColor || "#6366f1",
         icons: [
-          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" },
         ],
       },
       null,
@@ -109,8 +164,7 @@ function generatePWAExport(schema: any): ExportFile[] {
 const urlsToCache = [
   '/',
   '/index.html',
-  '/icon-192.png',
-  '/icon-512.png'
+  '/icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -130,6 +184,11 @@ self.addEventListener('fetch', (event) => {
   );
 });
 `,
+  });
+
+  files.push({
+    path: "icon.svg",
+    content: generateIconSvg(appName, theme),
   });
 
   return files;
@@ -655,7 +714,7 @@ body {
  * Generate HTML body content from schema
  */
 function generateHTMLBody(schema: any): string {
-  const screen = schema.screens?.[0];
+  const screen = getActiveScreen(schema);
   if (!screen) return "<div class=\"app-content\"><h1>Welcome</h1></div>";
 
   const components = screen.components || [];
@@ -668,7 +727,7 @@ function generateHTMLBody(schema: any): string {
   );
 
   const renderedContent = contentComponents
-    .map((comp: any) => renderHTMLComponent(comp))
+    .map((comp: any) => renderHTMLComponent(comp, schema))
     .join("\n    ");
 
   let html = "";
@@ -679,7 +738,7 @@ function generateHTMLBody(schema: any): string {
     html += `
   <header class="app-header">
     ${header.showBackButton ? '<button class="btn-icon">&#8592;</button>' : "<div></div>"}
-    <h1>${header.title}</h1>
+    <h1>${escapeHtml(header.title)}</h1>
     ${header.showAddButton ? '<button class="btn-icon">+</button>' : "<div></div>"}
   </header>`;
   }
@@ -708,36 +767,38 @@ function generateHTMLBody(schema: any): string {
 /**
  * Render a single component to HTML
  */
-function renderHTMLComponent(component: any): string {
+function renderHTMLComponent(component: any, schema?: any): string {
   switch (component.type) {
     case "header":
       return ""; // Handled separately
 
     case "text":
       if (component.variant === "title")
-        return `<h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">${component.content}</h2>`;
+        return `<h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">${escapeHtml(component.content)}</h2>`;
       if (component.variant === "subtitle")
-        return `<h3 style="font-size: 18px; font-weight: 600; color: #374151;">${component.content}</h3>`;
+        return `<h3 style="font-size: 18px; font-weight: 600; color: #374151;">${escapeHtml(component.content)}</h3>`;
       if (component.variant === "price")
-        return `<p style="font-size: 20px; font-weight: 700; color: var(--primary, #6366f1);">${component.content}</p>`;
-      return `<p style="font-size: 14px; color: #6b7280; line-height: 1.6;">${component.content}</p>`;
+        return `<p style="font-size: 20px; font-weight: 700; color: var(--primary, #6366f1);">${escapeHtml(component.content)}</p>`;
+      return `<p style="font-size: 14px; color: #6b7280; line-height: 1.6;">${escapeHtml(component.content)}</p>`;
 
     case "button":
-      return `<button class="btn btn-${component.variant || "primary"}">${component.text}</button>`;
+      return `<button class="btn btn-${component.variant || "primary"}">${escapeHtml(component.text)}</button>`;
 
     case "input":
-      return `<input type="${component.inputType || "text"}" class="input" placeholder="${component.placeholder || ""}" />`;
+      return `<input type="${component.inputType || "text"}" class="input" placeholder="${escapeHtml(component.placeholder || "")}" />`;
 
-    case "card":
+    case "card": {
+      const imageSource = resolveImageSource(component, schema);
       return `<div class="card">
-  <div class="card-image"></div>
+  ${imageSource ? `<img src="${escapeHtml(imageSource)}" alt="${escapeHtml(component.title || "Card image")}" class="card-image" style="object-fit: cover;" />` : '<div class="card-image"></div>'}
   <div class="card-body">
-    <div class="card-title">${component.title}</div>
-    ${component.description ? `<div class="card-text">${component.description}</div>` : ""}
-    ${component.price ? `<div style="margin-top: 8px; font-size: 18px; font-weight: 700; color: var(--primary, #6366f1);">${component.price}</div>` : ""}
+    <div class="card-title">${escapeHtml(component.title)}</div>
+    ${component.description ? `<div class="card-text">${escapeHtml(component.description)}</div>` : ""}
+    ${component.price ? `<div style="margin-top: 8px; font-size: 18px; font-weight: 700; color: var(--primary, #6366f1);">${escapeHtml(component.price)}</div>` : ""}
     ${component.rating ? `<div style="margin-top: 4px;">&#9733; ${component.rating}</div>` : ""}
   </div>
 </div>`;
+    }
 
     case "productGrid":
       return `<div class="space-y">
@@ -862,10 +923,10 @@ function renderHTMLComponent(component: any): string {
 </div>`;
 
     case "image":
-      return `<div style="width: 100%; height: 200px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #9ca3af; margin-bottom: 12px;">[Image]</div>`;
+      return renderImageHtml(resolveImageSource(component, schema), component.alt || component.title || "Uploaded image", component.height || 200);
 
     case "imageGallery":
-      return `<div style="width: 100%; height: ${component.height || 250}px; background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #9ca3af; margin-bottom: 12px;">[Image Gallery]</div>`;
+      return renderImageHtml(resolveImageSource(component, schema), component.alt || component.title || "Uploaded image gallery", component.height || 250);
 
     case "list":
       return `<div style="border-top: 1px solid #f3f4f6;">

@@ -25,25 +25,15 @@ npm run test:run   # Run test suite
 # Works out of the box. Limited to demo responses.
 ```
 
-### Option 2: Groq (recommended -- fast, cheap)
-```bash
-cp .env.example .env
-# Edit .env:
-VITE_GROQ_API_KEY=gsk_your_key_here
-VITE_AI_PROVIDER=groq
-```
+### Option 2: Groq or OpenRouter
+Open Settings inside the builder, paste a Groq or OpenRouter key, choose the model, and select that provider under Active Provider. These endpoints use OpenAI-compatible chat completions.
 
-### Option 3: OpenAI
-```bash
-cp .env.example .env
-# Edit .env:
-VITE_OPENAI_API_KEY=sk-your_key_here
-VITE_AI_PROVIDER=openai
-```
+### Option 3: Custom OpenAI-Compatible Provider
+Use Settings -> Add Custom Provider with a chat completions endpoint, model name, and API key.
 
 ## API Key Safety
 
-**VITE_ prefixed environment variables are bundled into the frontend JavaScript bundle.** They are visible to anyone who opens the browser's developer tools. This is acceptable for:
+Provider keys entered in Settings are demo keys stored client-side/account-side for convenience. They may be visible in browser state or Supabase records depending on deployment configuration. This is acceptable for:
 - Local development
 - Private demos
 - Prototyping
@@ -54,14 +44,14 @@ VITE_AI_PROVIDER=openai
 
 ```
 User Chat Prompt
-  -> AI Provider (Mock / Groq / OpenAI)
+  -> AI Provider (Mock / Groq / OpenRouter / OpenAI-compatible)
   -> Structured JSON Response (schema patches)
   -> Validation Layer
   -> Schema Diffing (apply patches incrementally)
   -> Live Preview Re-renders (phone / tablet / desktop)
   -> Changes Applied Summary
-  -> Auto-save to localStorage
-  -> Export to downloadable React/Vite zip
+  -> Auto-save to Supabase when configured
+  -> Export to downloadable static/PWA zip
 ```
 
 ## Features
@@ -71,7 +61,7 @@ User Chat Prompt
 | Chat-to-App | Complete |
 | Live Preview (phone/tablet/desktop) | Complete |
 | Schema Diffing (incremental updates) | Complete |
-| Export Code (downloadable zip) | Complete |
+| Export Code (downloadable static/PWA zip) | Complete |
 | Project Management (save/rename/delete) | Complete |
 | Bottom Tab Navigation | Complete |
 | Model Selector | Complete |
@@ -111,13 +101,13 @@ src/
     theme/         # Dual-palette theme system
   pages/           # Home page
   state/           # Zustand builder store
-public/            # PWA assets (manifest, icons, screenshots)
+public/            # Logo, PWA icons, and screenshots
 tests/             # Test suite (utils, builder, exports)
 ```
 
-## Manual Setup Required
+## Public Assets
 
-The following binary image files need to be added to the `public/` folder manually (they cannot be pushed via the GitHub API):
+The demo includes the required public image assets in `public/`:
 
 1. `public/icon-192.png` -- PWA icon (192x192)
 2. `public/icon-512.png` -- PWA icon (512x512)
@@ -125,23 +115,7 @@ The following binary image files need to be added to the `public/` folder manual
 4. `public/screenshot-narrow.png` -- PWA narrow screenshot
 5. `public/screenshot-wide.png` -- PWA wide screenshot
 
-### Adding Binary Files
-
-**Option A: Git CLI (if you have push access)**
-```bash
-git clone https://github.com/onlytrafficfans-gif/Betalotustester.git
-cd Betalotustester
-# Copy the 5 image files into public/
-git add public/*.png
-git commit -m "Add PWA image assets"
-git push
-```
-
-**Option B: GitHub Web Interface**
-1. Go to https://github.com/onlytrafficfans-gif/Betalotustester
-2. Navigate to the `public/` folder
-3. Click "Add file" -> "Upload files"
-4. Upload each image file
+Exports generate their own included `icon.svg`, so downloaded demo zips do not reference missing icon files.
 
 ## License
 

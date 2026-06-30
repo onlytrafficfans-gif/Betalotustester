@@ -35,7 +35,7 @@ export function ChatPanel() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
-            <img src="/logo-lotus.png" alt="LOTUS" className="w-full h-full object-cover" />
+            <LotusLogo className="w-8 h-8 rounded-lg" />
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-white/90 truncate">{project?.name || 'LOTUS Agent'}</h2>
@@ -100,7 +100,7 @@ export function ChatPanel() {
           <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
               <div className="w-7 h-7 rounded-lg overflow-hidden border border-lotus-400/20 flex items-center justify-center shrink-0 mt-0.5">
-                <img src="/logo-lotus.png" alt="LOTUS" className="w-full h-full object-cover" />
+                <LotusLogo className="w-7 h-7 rounded-lg" />
               </div>
             )}
             <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 ${
@@ -122,7 +122,7 @@ export function ChatPanel() {
         {isLoading && (
           <div className="flex gap-3 justify-start">
             <div className="w-7 h-7 rounded-lg overflow-hidden border border-lotus-400/20 flex items-center justify-center shrink-0 mt-0.5">
-              <img src="/logo-lotus.png" alt="LOTUS" className="w-full h-full object-cover" />
+              <LotusLogo className="w-7 h-7 rounded-lg" />
             </div>
             <div className="bg-white/5 border border-white/5 rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex items-center gap-2">
@@ -157,6 +157,15 @@ export function ChatPanel() {
 
       <ToolsBar />
       <ChatInput />
+    </div>
+  );
+}
+
+function LotusLogo({ className }: { className: string }) {
+  return (
+    <div className={`relative overflow-hidden bg-lotus-400/10 flex items-center justify-center ${className}`}>
+      <span className="text-[10px] font-bold text-lotus-400">L</span>
+      <img src="/logo-lotus.png" alt="LOTUS" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
     </div>
   );
 }

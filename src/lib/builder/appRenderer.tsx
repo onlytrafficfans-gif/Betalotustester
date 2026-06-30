@@ -277,6 +277,69 @@ function getIcon(iconName: string) {
   return iconMap[iconName] || Star;
 }
 
+function getComponentValue(component: any, field: string) {
+  return component?.[field] ?? component?.props?.[field];
+}
+
+export function getActiveScreen(schema: any) {
+  if (!Array.isArray(schema?.screens) || schema.screens.length === 0) return null;
+  return (
+    schema.screens.find((screen: any) => screen.id === schema.activeScreenId) ||
+    schema.screens.find((screen: any) => screen.name === schema.activeScreenId) ||
+    schema.screens[0]
+  );
+}
+
+function resolveImageSource(component: any, schema?: any): string | undefined {
+  const direct = getComponentValue(component, "src");
+  if (typeof direct === "string" && direct.startsWith("data:")) return direct;
+
+  const image = getComponentValue(component, "image");
+  if (typeof image === "string" && image.startsWith("data:")) return image;
+
+  const assetId =
+    getComponentValue(component, "assetId") ||
+    getComponentValue(component, "imageAssetId") ||
+    (typeof direct === "string" ? direct : undefined) ||
+    (typeof image === "string" ? image : undefined);
+
+  const asset = schema?.imageAssets?.find((item: any) => item.id === assetId || item.name === assetId);
+  return asset?.dataUrl;
+}
+
+function ImageAssetFrame({
+  src,
+  alt = "Uploaded image",
+  height = 192,
+}: {
+  src?: string;
+  alt?: string;
+  height?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        onError={() => setFailed(true)}
+        className="w-full rounded-2xl object-cover bg-gray-100"
+        style={{ height }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="w-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center"
+      style={{ height }}
+    >
+      <ImageIcon className="w-10 h-10 text-gray-300" />
+    </div>
+  );
+}
+
 // Component renderers
 function HeaderComponent({
   title,
@@ -416,9 +479,7 @@ function CardComponent({
       className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm active:scale-[0.98] transition-transform"
     >
       {image && (
-        <div className="w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-          <Image className="w-8 h-8 text-gray-300" />
-        </div>
+        <ImageAssetFrame src={image} alt={title} height={160} />
       )}
       <div className="p-4 space-y-2">
         <h3 className="font-semibold text-gray-900">{title}</h3>
@@ -705,25 +766,39 @@ function ProgressRingComponent({
   );
 }
 
-function BottomNavComponent({ items }: { items?: Array<{ icon: string; label: string }> }) {
+function BottomNavComponent({
+  items,
+  activeScreenId,
+  onNavigate,
+}: {
+  items?: Array<{ icon: string; label: string; id?: string; screenId?: string }>;
+  activeScreenId?: string;
+  onNavigate?: (screenId: string) => void;
+}) {
   const [active, setActive] = useState(0);
   const navItems = items || [
-    { icon: "home", label: "Home" },
-    { icon: "search", label: "Search" },
-    { icon: "cart", label: "Cart" },
-    { icon: "user", label: "Profile" },
+    { icon: "home", label: "Home", screenId: "home" },
+    { icon: "search", label: "Search", screenId: "search" },
+    { icon: "cart", label: "Cart", screenId: "cart" },
+    { icon: "user", label: "Profile", screenId: "profile" },
   ];
+  const schemaActiveIndex = navItems.findIndex((item) => (item.screenId || item.id) === activeScreenId);
 
   return (
     <div className="flex justify-around items-center py-2 bg-white border-t border-gray-100">
       {navItems.map((item, i) => {
         const Icon = getIcon(item.icon);
+        const isActive = schemaActiveIndex >= 0 ? schemaActiveIndex === i : active === i;
         return (
           <button
             key={i}
-            onClick={() => setActive(i)}
+            onClick={() => {
+              setActive(i);
+              const targetScreenId = item.screenId || item.id;
+              if (targetScreenId) onNavigate?.(targetScreenId);
+            }}
             className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all ${
-              active === i ? "text-primary" : "text-gray-400"
+              isActive ? "text-primary" : "text-gray-400"
             }`}
           >
             <Icon className="w-5 h-5" />
@@ -882,7 +957,12 @@ function SummaryComponent({ items }: { items?: string[] }) {
 }
 
 // Main renderer
-export function renderComponent(component: any, index: number): React.ReactNode {
+export function renderComponent(
+  component: any,
+  index: number,
+  schema?: any,
+  onNavigate?: (screenId: string) => void
+): React.ReactNode {
   if (!component || !component.type) return null;
 
   const key = `${component.type}-${index}`;
@@ -931,7 +1011,7 @@ export function renderComponent(component: any, index: number): React.ReactNode 
       return (
         <CardComponent
           key={key}
-          image={component.image}
+          image={resolveImageSource(component, schema) || component.image}
           title={component.title}
           description={component.description}
           price={component.price}
@@ -980,7 +1060,7 @@ export function renderComponent(component: any, index: number): React.ReactNode 
       );
 
     case "bottomNav":
-      return <BottomNavComponent key={key} items={component.items} />;
+      return <BottomNavComponent key={key} items={component.items} activeScreenId={schema?.activeScreenId} onNavigate={onNavigate} />;
 
     case "fab":
       return (
@@ -1122,23 +1202,22 @@ export function renderComponent(component: any, index: number): React.ReactNode 
 
     case "image":
       return (
-        <div
+        <ImageAssetFrame
           key={key}
-          className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center"
-        >
-          <ImageIcon className="w-10 h-10 text-gray-300" />
-        </div>
+          src={resolveImageSource(component, schema)}
+          alt={component.alt || component.title || "Uploaded image"}
+          height={component.height || 192}
+        />
       );
 
     case "imageGallery":
       return (
-        <div
+        <ImageAssetFrame
           key={key}
-          className="w-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center"
-          style={{ height: component.height || 250 }}
-        >
-          <ImageIcon className="w-10 h-10 text-gray-300" />
-        </div>
+          src={resolveImageSource(component, schema)}
+          alt={component.alt || component.title || "Uploaded image gallery"}
+          height={component.height || 250}
+        />
       );
 
     case "list":
@@ -1193,7 +1272,7 @@ function ImageIcon(props: any) {
 }
 
 // Render full app schema
-export function renderAppSchema(schema: any): React.ReactNode {
+export function renderAppSchema(schema: any, onNavigate?: (screenId: string) => void): React.ReactNode {
   if (!schema || !schema.screens) {
     return (
       <div className="p-8 text-center text-gray-400">
@@ -1202,8 +1281,16 @@ export function renderAppSchema(schema: any): React.ReactNode {
     );
   }
 
-  // Render the first screen by default
-  const screen = schema.screens[0];
+  const screen = getActiveScreen(schema);
+  if (!screen) {
+    return (
+      <div className="p-8 text-center text-gray-400">
+        No screens to render
+      </div>
+    );
+  }
+  const bottomNavComponent = screen.components?.find((c: any) => c.type === "bottomNav");
+  const navigationItems = bottomNavComponent?.items || schema.navigation?.items;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -1211,7 +1298,7 @@ export function renderAppSchema(schema: any): React.ReactNode {
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4">
           {screen.components?.map((component: any, i: number) =>
-            renderComponent(component, i)
+            renderComponent(component, i, schema, onNavigate)
           ) || <p className="text-center text-gray-400 py-8">Empty screen</p>}
         </div>
       </div>
@@ -1226,7 +1313,7 @@ export function renderAppSchema(schema: any): React.ReactNode {
       {/* Bottom nav if present */}
       {screen.components?.some((c: any) => c.type === "bottomNav") && (
         <div className="shrink-0">
-          <BottomNavComponent />
+          <BottomNavComponent items={navigationItems} activeScreenId={schema.activeScreenId} onNavigate={onNavigate} />
         </div>
       )}
     </div>
@@ -1243,8 +1330,8 @@ export function AppRenderer({
   isDesktop?: boolean;
 }) {
   return (
-    <div className={isDesktop ? 'h-full w-full' : 'h-full w-full'} onClick={() => onNavigate?.(schema?.activeScreenId)}>
-      {renderAppSchema(schema)}
+    <div className={isDesktop ? 'h-full w-full' : 'h-full w-full'}>
+      {renderAppSchema(schema, onNavigate)}
     </div>
   );
 }

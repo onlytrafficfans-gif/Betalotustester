@@ -31,6 +31,7 @@ describe("Export Generator", () => {
     expect(paths).toContain("index.html");
     expect(paths).toContain("manifest.json");
     expect(paths).toContain("sw.js");
+    expect(paths).toContain("icon.svg");
   });
 
   it("generates static export without service worker", () => {
@@ -61,6 +62,7 @@ describe("Export Generator", () => {
     const parsed = JSON.parse(manifest!.content);
     expect(parsed.theme_color).toBe("#6366f1");
     expect(parsed.background_color).toBe("#ffffff");
+    expect(parsed.icons[0].src).toBe("icon.svg");
   });
 
   it("throws error for unsupported format", () => {
@@ -98,6 +100,60 @@ describe("PWA Export Content", () => {
     const html = files.find((f) => f.path === "index.html");
     expect(html?.content).toContain("#ff0000");
     expect(html?.content).toContain("#fafafa");
+  });
+
+  it("does not reference missing PNG icons", () => {
+    const files = generateExport(schema, { format: "pwa" });
+    const html = files.find((f) => f.path === "index.html");
+    const manifest = files.find((f) => f.path === "manifest.json");
+    const sw = files.find((f) => f.path === "sw.js");
+    expect(html?.content).not.toContain("icon-192.png");
+    expect(manifest?.content).not.toContain("icon-512.png");
+    expect(sw?.content).not.toContain("icon-192.png");
+  });
+});
+
+describe("Export Schema Rendering", () => {
+  it("uses activeScreenId for exported HTML", () => {
+    const schema = {
+      name: "ActiveExport",
+      activeScreenId: "details",
+      screens: [
+        { id: "home", name: "Home", components: [{ type: "text", content: "Home export", variant: "title" }] },
+        { id: "details", name: "Details", components: [{ type: "text", content: "Details export", variant: "title" }] },
+      ],
+      theme: {},
+      imageAssets: [],
+      features: [],
+    };
+
+    const files = generateExport(schema, { format: "pwa" });
+    const html = files.find((f) => f.path === "index.html");
+    expect(html?.content).toContain("Details export");
+    expect(html?.content).not.toContain("Home export");
+  });
+
+  it("includes image asset data URLs in exported HTML", () => {
+    const dataUrl = "data:image/png;base64,ZXhwb3J0ZWQtaW1hZ2U=";
+    const schema = {
+      name: "ImageExport",
+      activeScreenId: "home",
+      screens: [
+        {
+          id: "home",
+          name: "Home",
+          components: [{ type: "image", imageAssetId: "hero", alt: "Export hero" }],
+        },
+      ],
+      theme: {},
+      imageAssets: [{ id: "hero", name: "hero.png", dataUrl, mimeType: "image/png" }],
+      features: [],
+    };
+
+    const files = generateExport(schema, { format: "static" });
+    const html = files.find((f) => f.path === "index.html");
+    expect(html?.content).toContain(dataUrl);
+    expect(html?.content).toContain("Export hero");
   });
 });
 

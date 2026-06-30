@@ -37,13 +37,18 @@ function dbToProject(row: any): Project {
 }
 
 export async function loadProjects(): Promise<Project[]> {
-  const { data: session } = await supabase.auth.getSession();
-  if (!session.session) return [getDefaultProject()];
-  const userId = session.session.user.id;
-  const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
-  if (error) { console.error('loadProjects error:', error); return [getDefaultProject()]; }
-  if (!data || data.length === 0) return [getDefaultProject()];
-  return data.map(dbToProject);
+  try {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) return [getDefaultProject()];
+    const userId = session.session.user.id;
+    const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
+    if (error) { console.error('loadProjects error:', error); return [getDefaultProject()]; }
+    if (!data || data.length === 0) return [getDefaultProject()];
+    return data.map(dbToProject);
+  } catch (error) {
+    console.error('loadProjects exception:', error);
+    return [getDefaultProject()];
+  }
 }
 
 export async function loadUserProjects(userId: string): Promise<ProjectRecord[]> {
@@ -70,23 +75,34 @@ export async function saveProject(userId: string, project: Pick<ProjectRecord, '
 }
 
 export async function createProject(name: string): Promise<Project> {
-  const { data: session } = await supabase.auth.getSession();
-  const userId = session.session?.user.id;
   const project: Project = { id: generateId(), name, schema: getDefaultSchema(), messages: [], updatedAt: Date.now(), createdAt: Date.now() };
-  if (userId) {
-    await supabase.from('projects').insert({ id: project.id, user_id: userId, name: project.name, schema: project.schema, messages: project.messages });
+  try {
+    const { data: session } = await supabase.auth.getSession();
+    const userId = session.session?.user.id;
+    if (userId) {
+      const { error } = await supabase.from('projects').insert({ id: project.id, user_id: userId, name: project.name, schema: project.schema, messages: project.messages });
+      if (error) console.error('createProject error:', error);
+    }
+  } catch (error) {
+    console.error('createProject exception:', error);
   }
   return project;
 }
 
 export async function updateProject(project: Project): Promise<void> {
-  const { data: session } = await supabase.auth.getSession();
-  if (!session.session) return;
-  await supabase.from('projects').update({ name: project.name, schema: project.schema, messages: project.messages, updated_at: new Date().toISOString() }).eq('id', project.id);
+  try {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) return;
+    const { error } = await supabase.from('projects').update({ name: project.name, schema: project.schema, messages: project.messages, updated_at: new Date().toISOString() }).eq('id', project.id);
+    if (error) console.error('updateProject error:', error);
+  } catch (error) {
+    console.error('updateProject exception:', error);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await supabase.from('projects').delete().eq('id', id);
+  const { error } = await supabase.from('projects').delete().eq('id', id);
+  if (error) throw error;
 }
 
 function getDefaultProject(): Project {

@@ -134,6 +134,17 @@ describe("Builder Store - Messages", () => {
     store.setLoading(false);
     expect(useBuilderStore.getState().isLoading).toBe(false);
   });
+
+  it("mock provider updates the preview schema", async () => {
+    const store = useBuilderStore.getState();
+    await store.sendMessage("Build a fitness app");
+
+    const state = useBuilderStore.getState();
+    expect(state.generationStatus).toBe("success");
+    expect(state.schema.name).toBe("FitPulse");
+    expect(state.appliedChanges[0]?.text).toContain("screen");
+    expect(state.messages.some((message) => message.role === "assistant" && message.content.includes("safe demo mock provider"))).toBe(true);
+  });
 });
 
 describe("Builder Store - UI State", () => {

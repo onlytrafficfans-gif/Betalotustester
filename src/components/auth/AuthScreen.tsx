@@ -56,8 +56,9 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
       <div className="w-full max-w-sm space-y-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl overflow-hidden border border-lotus-400/20 flex items-center justify-center">
-            <img src="/logo-lotus.png" alt="LOTUS" className="w-full h-full object-cover" />
+          <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-lotus-400/20 bg-lotus-400/10 flex items-center justify-center">
+            <span className="text-xs font-bold text-lotus-400">L</span>
+            <img src="/logo-lotus.png" alt="LOTUS" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />
           </div>
           <div className="text-center">
             <h1 className="text-xl font-bold text-white/90 tracking-tight">LOTUS</h1>

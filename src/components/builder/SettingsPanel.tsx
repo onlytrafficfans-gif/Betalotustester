@@ -111,36 +111,64 @@ export function SettingsPanel() {
   const [showDanger, setShowDanger] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  useEffect(() => { if (userId) loadStoredProviders(userId).then(setActiveProviders); }, [userId]);
+  useEffect(() => {
+    if (!userId) return;
+    loadStoredProviders(userId)
+      .then(setActiveProviders)
+      .catch((error) => {
+        console.error('[LOTUS] Failed to load AI providers:', error);
+        setActiveProviders([]);
+      });
+  }, [userId]);
 
   const handleSaveProvider = useCallback(async (provider: StoredProvider) => {
     if (!userId) return;
-    await addProvider(userId, provider);
-    const updated = await loadStoredProviders(userId);
-    setActiveProviders(updated);
-    const hasActive = updated.find(p => p.id === provider.id && p.apiKey.length > 10);
-    if (hasActive && providerId === 'mock') switchProvider(provider.id);
-  }, [userId, providerId, switchProvider]);
+    try {
+      await addProvider(userId, provider);
+      await addApiProvider(userId, provider);
+      const updated = await loadStoredProviders(userId);
+      setActiveProviders(updated);
+      const hasActive = updated.find(p => p.id === provider.id && p.apiKey.length > 10);
+      if (hasActive && providerId === 'mock') switchProvider(provider.id);
+    } catch (error) {
+      console.error('[LOTUS] Failed to save AI provider:', error);
+    }
+  }, [userId, providerId, switchProvider, addApiProvider]);
 
   const handleDeleteProvider = useCallback(async (id: string) => {
     if (!userId) return;
-    await removeProvider(userId, id);
-    setActiveProviders(await loadStoredProviders(userId));
-    if (providerId === id) {
-      const remaining = (await loadStoredProviders(userId)).filter(p => p.apiKey.length > 10);
-      if (remaining.length > 0) switchProvider(remaining[0].id);
+    try {
+      await removeProvider(userId, id);
+      const updated = await loadStoredProviders(userId);
+      setActiveProviders(updated);
+      if (providerId === id) {
+        const remaining = updated.filter(p => p.apiKey.length > 10);
+        switchProvider(remaining[0]?.id || 'mock');
+      }
+    } catch (error) {
+      console.error('[LOTUS] Failed to remove AI provider:', error);
     }
   }, [userId, providerId, switchProvider]);
 
   const handleAddCustom = useCallback(async (provider: StoredProvider) => {
     if (!userId) return;
-    await addApiProvider(userId, provider);
-    setActiveProviders(await loadStoredProviders(userId));
-  }, [userId, addApiProvider]);
+    try {
+      await addProvider(userId, provider);
+      await addApiProvider(userId, provider);
+      setActiveProviders(await loadStoredProviders(userId));
+      if (providerId === 'mock') switchProvider(provider.id);
+    } catch (error) {
+      console.error('[LOTUS] Failed to add custom provider:', error);
+    }
+  }, [userId, addApiProvider, providerId, switchProvider]);
 
   useEffect(() => {
     if (!userId) return;
-    const interval = setInterval(() => { loadStoredProviders(userId).then(setActiveProviders); }, 5000);
+    const interval = setInterval(() => {
+      loadStoredProviders(userId).then(setActiveProviders).catch((error) => {
+        console.error('[LOTUS] Failed to refresh AI providers:', error);
+      });
+    }, 5000);
     return () => clearInterval(interval);
   }, [userId]);
 
@@ -160,7 +188,7 @@ export function SettingsPanel() {
         </section>
         <section className="space-y-3">
           <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider flex items-center gap-1.5"><Key size={10} />AI Providers</h3>
-          <p className="text-[10px] text-white/20 leading-relaxed">Add API keys for any OpenAI-compatible provider. Your keys are stored securely in your account and never shared.</p>
+          <p className="text-[10px] text-white/20 leading-relaxed">Add API keys for OpenAI-compatible providers such as Groq or OpenRouter. This demo stores keys client-side/account-side for convenience; use a server proxy before production.</p>
           {PRESET_PROVIDERS.map((preset) => <KeyField key={preset.id} config={{ ...preset, apiKey: '' }} storedProvider={activeProviders.find(p => p.id === preset.id)} onSave={handleSaveProvider} onDelete={handleDeleteProvider} />)}
           <CustomProviderForm onAdd={handleAddCustom} />
         </section>
