@@ -10,7 +10,7 @@ describe("Builder Store - Initial State", () => {
 
   it("has correct initial state", () => {
     const state = useBuilderStore.getState();
-    expect(state.currentProject).toBeNull();
+    expect(state.project).toBeNull();
     expect(state.messages).toHaveLength(0);
     expect(state.isLoading).toBe(false);
     expect(state.activePanel).toBe("chat");
@@ -43,8 +43,8 @@ describe("Builder Store - Project Management", () => {
     store.createProject("TestProject");
 
     const state = useBuilderStore.getState();
-    expect(state.currentProject).not.toBeNull();
-    expect(state.currentProject?.name).toBe("TestProject");
+    expect(state.project).not.toBeNull();
+    expect(state.project?.name).toBe("TestProject");
   });
 
   it("can set current project", () => {
@@ -58,7 +58,7 @@ describe("Builder Store - Project Management", () => {
     };
 
     store.setCurrentProject(project);
-    expect(useBuilderStore.getState().currentProject?.name).toBe("MyApp");
+    expect(useBuilderStore.getState().project?.name).toBe("MyApp");
   });
 
   it("can update project schema", () => {
@@ -71,7 +71,7 @@ describe("Builder Store - Project Management", () => {
     };
 
     store.updateSchema(newSchema);
-    expect(useBuilderStore.getState().currentProject?.schema).toEqual(newSchema);
+    expect(useBuilderStore.getState().project?.schema).toEqual(newSchema);
   });
 
   it("can clear current project", () => {
@@ -79,7 +79,7 @@ describe("Builder Store - Project Management", () => {
     store.createProject("Test");
     store.clearProject();
 
-    expect(useBuilderStore.getState().currentProject).toBeNull();
+    expect(useBuilderStore.getState().project).toBeNull();
   });
 });
 
@@ -174,10 +174,10 @@ describe("Builder Store - UI State", () => {
 
   it("can toggle sidebar", () => {
     const store = useBuilderStore.getState();
-    const initial = store.sidebarOpen;
+    const initial = store.isSidebarOpen;
 
     store.toggleSidebar();
-    expect(useBuilderStore.getState().sidebarOpen).toBe(!initial);
+    expect(useBuilderStore.getState().isSidebarOpen).toBe(!initial);
   });
 });
 
@@ -218,7 +218,7 @@ describe("Builder Store - Reset", () => {
     store.resetStore();
 
     const state = useBuilderStore.getState();
-    expect(state.currentProject).toBeNull();
+    expect(state.project).toBeNull();
     expect(state.messages).toHaveLength(0);
     expect(state.isLoading).toBe(false);
     expect(state.activePanel).toBe("chat");

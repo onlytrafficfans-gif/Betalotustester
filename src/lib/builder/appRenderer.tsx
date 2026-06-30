@@ -138,6 +138,9 @@ import {
   MinusCircle,
   XCircle,
 } from "lucide-react";
+import { CarouselRenderer } from "./renderers/CarouselRenderer";
+import { TabsRenderer } from "./renderers/TabsRenderer";
+import { TaskListRenderer } from "./renderers/TaskListRenderer";
 
 // Icon mapping for dynamic icon lookup
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -569,136 +572,14 @@ function SearchBarComponent({ placeholder = "Search..." }: { placeholder?: strin
   );
 }
 
-function TabsComponent({ tabs }: { tabs?: string[] }) {
-  const [active, setActive] = useState(0);
-  const tabList = tabs || ["Tab 1", "Tab 2", "Tab 3"];
+// TabsComponent is extracted to renderers/TabsRenderer.tsx
+const TabsComponent = TabsRenderer;
 
-  return (
-    <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
-      {tabList.map((tab, i) => (
-        <button
-          key={i}
-          onClick={() => setActive(i)}
-          className={`flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all ${
-            active === i
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          {tab}
-        </button>
-      ))}
-    </div>
-  );
-}
+// CarouselComponent is extracted to renderers/CarouselRenderer.tsx
+const CarouselComponent = CarouselRenderer;
 
-function CarouselComponent({ items }: { items?: string[] }) {
-  const [current, setCurrent] = useState(0);
-  const itemList = items || ["Banner 1", "Banner 2", "Banner 3"];
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrent((c) => (c + 1) % itemList.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [itemList.length]);
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl">
-      <div
-        className="flex transition-transform duration-500"
-        style={{ transform: `translateX(-${current * 100}%)` }}
-      >
-        {itemList.map((item, i) => (
-          <div
-            key={i}
-            className="w-full flex-shrink-0 h-36 bg-gradient-to-r from-primary/20 to-primary/10 flex items-center justify-center"
-          >
-            <span className="text-lg font-semibold text-primary">{item}</span>
-          </div>
-        ))}
-      </div>
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-        {itemList.map((_, i) => (
-          <div
-            key={i}
-            className={`w-1.5 h-1.5 rounded-full transition-all ${
-              i === current ? "bg-primary w-4" : "bg-primary/30"
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TaskListComponent({ emptyState }: { emptyState?: string }) {
-  const [tasks, setTasks] = useState([
-    { id: 1, text: "Review design mockups", done: false, priority: "high" },
-    { id: 2, text: "Update API documentation", done: true, priority: "medium" },
-    { id: 3, text: "Fix navigation bug", done: false, priority: "high" },
-  ]);
-
-  const toggleTask = (id: number) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
-  };
-
-  const deleteTask = (id: number) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  if (tasks.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <CheckCircle2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">
-          {emptyState || "No tasks yet"}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {tasks.map((task) => (
-        <div
-          key={task.id}
-          className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-            task.done
-              ? "bg-gray-50 border-gray-100"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <button
-            onClick={() => toggleTask(task.id)}
-            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-              task.done
-                ? "bg-primary border-primary"
-                : "border-gray-300 hover:border-primary"
-            }`}
-          >
-            {task.done && <Check className="w-3.5 h-3.5 text-white" />}
-          </button>
-          <span
-            className={`flex-1 text-sm ${
-              task.done ? "text-gray-400 line-through" : "text-gray-700"
-            }`}
-          >
-            {task.text}
-          </span>
-          <button
-            onClick={() => deleteTask(task.id)}
-            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
+// TaskListComponent is extracted to renderers/TaskListRenderer.tsx
+const TaskListComponent = TaskListRenderer;
 
 function StatsRowComponent({ stats }: { stats?: Array<{ label: string; value: string }> }) {
   const defaultStats = [
@@ -965,7 +846,7 @@ export function renderComponent(
 ): React.ReactNode {
   if (!component || !component.type) return null;
 
-  const key = `${component.type}-${index}`;
+  const key = component.id ? `component-${component.id}` : `${component.type}-${index}`;
 
   switch (component.type) {
     case "header":

@@ -4,6 +4,7 @@ import type { AppSchema } from '@/lib/builder/appSchema';
 import { createEmptySchema, mergeSchemaUpdates } from '@/lib/builder/appSchema';
 import { defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
 import { loadStoredProviders } from '@/lib/ai/apiKeyStorage';
+import { proxyAIRequest } from '@/lib/ai/backendProxy';
 import { loadUserProjects, saveProject, deleteProject as deleteStoredProject } from '@/lib/supabase/projectStorage';
 import { recordSkillUsage } from '@/lib/supabase/skillsStorage';
 import type { Skill } from '@/lib/skills/skillsData';
@@ -59,7 +60,6 @@ interface BuilderState {
   activePanel: string;
   sidebarView: SidebarView;
   isSidebarOpen: boolean;
-  sidebarOpen: boolean;
   showSkillsPanel: boolean;
   previewDevice: PreviewDevice;
   showPreview: boolean;
@@ -76,7 +76,6 @@ interface BuilderState {
   lastFailedMessageId: string | null;
   projects: Project[];
   project: Project | null;
-  currentProject: Project | null;
   currentProjectId: string | null;
   isProjectsLoading: boolean;
   _currentUser: CurrentUser | null;
@@ -104,9 +103,9 @@ interface BuilderActions {
   setActivePanel: (panel: string) => void;
   toggleSidebar: () => void;
   setCurrentUser: (user: CurrentUser | null) => void;
-  setCurrentProject: (project: any) => void;
+  setCurrentProject: (project: Project) => void;
   clearProject: () => void;
-  addProject: (project: any) => void;
+  addProject: (project: Project) => void;
   removeProject: (id: string) => void;
   createProject: (name: string) => Project;
   createNewProject: (name?: string) => Project;
@@ -194,7 +193,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         activePanel: 'chat',
         sidebarView: 'projects',
         isSidebarOpen: true,
-        sidebarOpen: true,
+        
         showSkillsPanel: false,
         previewDevice: 'phone',
         showPreview: true,
@@ -211,7 +210,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         lastFailedMessageId: null,
         projects: [],
         project: null,
-        currentProject: null,
+        
         currentProjectId: null,
         isProjectsLoading: false,
         _currentUser: null,
@@ -232,14 +231,14 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           set({ mobileTab: tab, activePanel: tab });
         },
         setSidebarView: (view) => set({ sidebarView: view }),
-        setSidebarOpen: (open) => set({ isSidebarOpen: open, sidebarOpen: open }),
+        setSidebarOpen: (open) => set({ isSidebarOpen: open }),
         setShowSkillsPanel: (show) => set({ showSkillsPanel: show }),
         toggleSkillsPanel: () => set({ showSkillsPanel: !get().showSkillsPanel }),
         setPreviewDevice: (device) => set({ previewDevice: device }),
         setShowPreview: (show) => set({ showPreview: show }),
         togglePreview: () => set({ showPreview: !get().showPreview }),
         setActivePanel: (panel) => set({ activePanel: panel, mobileTab: ['chat', 'preview', 'settings', 'projects', 'skills'].includes(panel) ? panel as MobileTab : get().mobileTab }),
-        toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen, sidebarOpen: !get().isSidebarOpen }),
+        toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen }),
         setCurrentUser: (user) => set({ _currentUser: user }),
         setCurrentProject: (incoming) => {
           const project: Project = {
@@ -250,9 +249,9 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
             updatedAt: typeof incoming.updatedAt === 'number' ? incoming.updatedAt : new Date(incoming.updatedAt ?? Date.now()).getTime(),
             history: incoming.history ?? [],
           };
-          set({ project, currentProject: project, currentProjectId: project.id, schema: project.schema });
+          set({ project, currentProjectId: project.id, schema: project.schema });
         },
-        clearProject: () => set({ project: null, currentProject: null, currentProjectId: null }),
+        clearProject: () => set({ project: null, currentProjectId: null }),
         addProject: (incoming) => {
           const project: Project = {
             id: incoming.id ?? newId(),
@@ -271,7 +270,6 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           set({
             projects: [project, ...get().projects],
             project,
-            currentProject: project,
             currentProjectId: project.id,
             schema: project.schema,
             history: [project.schema],
@@ -287,14 +285,13 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           const project = get().projects.find((p) => p.id === id);
           if (!project) return;
           set({ project, currentProjectId: id, schema: project.schema, history: [project.schema], schemaHistory: [project.schema], historyIndex: 0, messages: [] });
-          set({ currentProject: project });
         },
         switchProject: (id) => get().loadProject(id),
         deleteProject: (id) => {
           const user = get()._currentUser;
           const projects = get().projects.filter((p) => p.id !== id);
           const project = get().currentProjectId === id ? projects[0] ?? null : get().project;
-          set({ projects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? createEmptySchema() });
+          set({ projects, project, currentProjectId: project?.id ?? null, schema: project?.schema ?? createEmptySchema() });
           if (user) void deleteStoredProject(id).catch((error) => {
             console.error('[LOTUS] Failed to delete project remotely:', error);
             set({ error: 'Project was removed locally, but remote deletion failed. Check Supabase project settings.' });
@@ -305,7 +302,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           if (!trimmed) return;
           const projects = get().projects.map((p) => p.id === id ? { ...p, name: trimmed, updatedAt: now(), schema: { ...p.schema, name: trimmed } } : p);
           const project = projects.find((p) => p.id === get().currentProjectId) ?? null;
-          set({ projects, project, currentProject: project, schema: project?.schema ?? get().schema });
+          set({ projects, project, schema: project?.schema ?? get().schema });
           void get().saveCurrentProject();
         },
         loadProjects: async () => {
@@ -323,23 +320,12 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
               updatedAt: new Date(p.updated_at).getTime(),
               history: [],
             }));
-            const finalProjects = projects;
+            const finalProjects = projects.length > 0 ? projects : get().projects;
             const project = get().currentProjectId ? finalProjects.find((p) => p.id === get().currentProjectId) ?? finalProjects[0] ?? null : finalProjects[0] ?? null;
-            const emptySchema = createEmptySchema();
-            set({
-              projects: finalProjects,
-              project,
-              currentProject: project,
-              currentProjectId: project?.id ?? null,
-              schema: project?.schema ?? emptySchema,
-              history: project ? [project.schema] : [emptySchema],
-              schemaHistory: project ? [project.schema] : [emptySchema],
-              historyIndex: 0,
-              isProjectsLoading: false,
-            });
+            set({ projects: finalProjects, project, currentProjectId: project?.id ?? null, schema: project?.schema ?? get().schema, isProjectsLoading: false });
           } catch (error) {
             console.error('[LOTUS] Failed to load projects:', error);
-            set({ isProjectsLoading: false, error: 'Supabase project loading failed. Showing local cached demo state only.' });
+            set({ isProjectsLoading: false });
           }
         },
         saveCurrentProject: async () => {
@@ -373,20 +359,15 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
             if (provider.id === 'mock' || !provider.apiEndpoint) {
               fullContent = mockAssistantResponse(content);
             } else {
-              const response = await fetch(provider.apiEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.apiKey}` },
-                body: JSON.stringify({
-                  model: provider.model,
-                  messages: [
-                    { role: 'system', content: providerRegistry.getSystemPrompt() },
-                    { role: 'user', content },
-                  ],
-                }),
+              const proxyResponse = await proxyAIRequest({
+                provider: provider.id,
+                model: provider.model,
+                messages: [
+                  { role: 'system', content: providerRegistry.getSystemPrompt() },
+                  { role: 'user', content },
+                ],
               });
-              if (!response.ok) throw new Error(`API error: ${response.status}`);
-              const data = await response.json();
-              fullContent = data.choices?.[0]?.message?.content ?? JSON.stringify(data);
+              fullContent = proxyResponse.content;
             }
             const updatedSchema = extractSchema(fullContent, get().schema.name);
             const changesSummary = `${updatedSchema.screens.length} screen${updatedSchema.screens.length === 1 ? '' : 's'} updated`;
@@ -424,12 +405,12 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         dismissChanges: () => set({ appliedChanges: [] }),
 
         updateSchema: (fn) => get().replaceSchema(typeof fn === 'function' ? fn(get().schema) : fn),
-        replaceSchema: (schema) => set({ schema, project: withProjectSchema(get().project, schema), currentProject: withProjectSchema(get().project, schema), history: [schema], schemaHistory: [schema], historyIndex: 0 }),
+        replaceSchema: (schema) => set({ schema, project: withProjectSchema(get().project, schema), history: [schema], schemaHistory: [schema], historyIndex: 0 }),
         pushSchemaHistory: (schema) => {
           const next = get().history.slice(0, get().historyIndex + 1);
           next.push(schema);
           const project = withProjectSchema(get().project, schema);
-          set({ history: next, schemaHistory: next, historyIndex: next.length - 1, schema, project, currentProject: project });
+          set({ history: next, schemaHistory: next, historyIndex: next.length - 1, schema, project });
         },
         setActiveScreen: (screenId) => set({ schema: { ...get().schema, activeScreenId: screenId } }),
         undo: () => {
@@ -503,7 +484,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setExportFormat: (exportFormat) => set({ exportFormat }),
         resetStore: () => {
           const schema = createEmptySchema();
-          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, currentProject: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, sidebarOpen: true, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
+          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
         },
       }),
       {
@@ -519,7 +500,6 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           activeSkillIds: state.activeSkillIds,
           projects: state.projects,
           project: state.project,
-          currentProject: state.currentProject,
           currentProjectId: state.currentProjectId,
           schema: state.schema,
           history: state.history,
@@ -527,7 +507,6 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           historyIndex: state.historyIndex,
           messages: state.messages,
           activePanel: state.activePanel,
-          sidebarOpen: state.sidebarOpen,
           selectedProvider: state.selectedProvider,
           apiKeys: state.apiKeys,
           theme: state.theme,
