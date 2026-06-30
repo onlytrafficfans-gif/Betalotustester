@@ -8,6 +8,20 @@ export interface AuthUser {
   avatar?: string;
 }
 
+async function ensureUserProfile(user: AuthUser): Promise<void> {
+  const { error } = await supabase.from('user_profiles').upsert(
+    {
+      id: user.id,
+      email: user.email,
+      full_name: user.name ?? user.email.split('@')[0],
+      avatar_url: user.avatar ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+  if (error) console.error('[LOTUS] ensureUserProfile failed:', error);
+}
+
 export async function signUp(email: string, password: string, name?: string): Promise<{ user: AuthUser | null; error: string | null }> {
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -17,7 +31,9 @@ export async function signUp(email: string, password: string, name?: string): Pr
     });
     if (error) return { user: null, error: error.message };
     if (data.user) {
-      return { user: { id: data.user.id, email: data.user.email!, name: data.user.user_metadata?.full_name || email.split('@')[0] }, error: null };
+      const user = { id: data.user.id, email: data.user.email!, name: data.user.user_metadata?.full_name || email.split('@')[0] };
+      await ensureUserProfile(user);
+      return { user, error: null };
     }
   } catch (error) {
     console.error('[LOTUS] signUp failed:', error);
@@ -31,7 +47,9 @@ export async function signIn(email: string, password: string): Promise<{ user: A
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { user: null, error: error.message };
     if (data.user) {
-      return { user: { id: data.user.id, email: data.user.email!, name: data.user.user_metadata?.full_name || data.user.email!.split('@')[0], avatar: data.user.user_metadata?.avatar_url }, error: null };
+      const user = { id: data.user.id, email: data.user.email!, name: data.user.user_metadata?.full_name || data.user.email!.split('@')[0], avatar: data.user.user_metadata?.avatar_url };
+      await ensureUserProfile(user);
+      return { user, error: null };
     }
   } catch (error) {
     console.error('[LOTUS] signIn failed:', error);
@@ -79,7 +97,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     const { data } = await supabase.auth.getSession();
     if (!data.session?.user) return null;
     const u = data.session.user;
-    return { id: u.id, email: u.email!, name: u.user_metadata?.full_name || u.email!.split('@')[0], avatar: u.user_metadata?.avatar_url };
+    const user = { id: u.id, email: u.email!, name: u.user_metadata?.full_name || u.email!.split('@')[0], avatar: u.user_metadata?.avatar_url };
+    await ensureUserProfile(user);
+    return user;
   } catch (error) {
     console.error('[LOTUS] getCurrentUser failed:', error);
     return null;
@@ -90,7 +110,9 @@ export function onAuthStateChange(callback: (user: AuthUser | null) => void) {
   try {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        callback({ id: session.user.id, email: session.user.email!, name: session.user.user_metadata?.full_name || session.user.email!.split('@')[0], avatar: session.user.user_metadata?.avatar_url });
+        const user = { id: session.user.id, email: session.user.email!, name: session.user.user_metadata?.full_name || session.user.email!.split('@')[0], avatar: session.user.user_metadata?.avatar_url };
+        void ensureUserProfile(user);
+        callback(user);
       } else {
         callback(null);
       }

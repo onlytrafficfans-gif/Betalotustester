@@ -9,6 +9,8 @@ This checklist separates code-verified demo behavior from remote checks that req
 - Fresh build path: `npm run build`
 - Test suite path: `npm run test:run`
 - Settings can register OpenAI-compatible providers such as Groq and OpenRouter into the runtime provider list.
+- Authenticated project loading treats Supabase projects as the source of truth and does not reuse old local project cache when the remote project list is empty.
+- Auth creates/updates a Supabase `user_profiles` row so provider keys can be saved to the logged-in demo account.
 - `sendMessage` uses the selected provider when it has an endpoint and API key.
 - Demo Mock remains the default fallback and updates the preview schema.
 - Provider failures add a clean assistant error suggesting Demo Mock.

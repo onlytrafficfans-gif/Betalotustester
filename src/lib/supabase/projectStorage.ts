@@ -56,7 +56,7 @@ export async function loadUserProjects(userId: string): Promise<ProjectRecord[]>
   const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
   if (error) {
     console.error('loadUserProjects error:', error);
-    return [];
+    throw error;
   }
   return (data || []) as ProjectRecord[];
 }

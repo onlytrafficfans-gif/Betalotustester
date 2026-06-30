@@ -323,12 +323,23 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
               updatedAt: new Date(p.updated_at).getTime(),
               history: [],
             }));
-            const finalProjects = projects.length > 0 ? projects : get().projects;
+            const finalProjects = projects;
             const project = get().currentProjectId ? finalProjects.find((p) => p.id === get().currentProjectId) ?? finalProjects[0] ?? null : finalProjects[0] ?? null;
-            set({ projects: finalProjects, project, currentProject: project, currentProjectId: project?.id ?? null, schema: project?.schema ?? get().schema, isProjectsLoading: false });
+            const emptySchema = createEmptySchema();
+            set({
+              projects: finalProjects,
+              project,
+              currentProject: project,
+              currentProjectId: project?.id ?? null,
+              schema: project?.schema ?? emptySchema,
+              history: project ? [project.schema] : [emptySchema],
+              schemaHistory: project ? [project.schema] : [emptySchema],
+              historyIndex: 0,
+              isProjectsLoading: false,
+            });
           } catch (error) {
             console.error('[LOTUS] Failed to load projects:', error);
-            set({ isProjectsLoading: false });
+            set({ isProjectsLoading: false, error: 'Supabase project loading failed. Showing local cached demo state only.' });
           }
         },
         saveCurrentProject: async () => {

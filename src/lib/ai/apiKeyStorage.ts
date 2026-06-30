@@ -28,7 +28,10 @@ async function getApiKeys(userId: string): Promise<StoredProvider[]> {
 }
 
 async function setApiKeys(userId: string, providers: StoredProvider[]): Promise<void> {
-  const { error } = await supabase.from('user_profiles').update({ api_keys: providers, updated_at: new Date().toISOString() }).eq('id', userId);
+  const { error } = await supabase.from('user_profiles').upsert(
+    { id: userId, api_keys: providers, updated_at: new Date().toISOString() },
+    { onConflict: 'id' }
+  );
   if (error) console.error('setApiKeys error:', error);
 }
 
