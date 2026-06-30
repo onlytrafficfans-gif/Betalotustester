@@ -6,28 +6,37 @@ import { Toaster } from '@/components/ui/sonner';
 import { getCurrentUser, onAuthStateChange, signOut } from '@/lib/supabase/auth';
 import type { AuthUser } from '@/lib/supabase/auth';
 import { LogOut, User } from 'lucide-react';
-import { useBuilderStore } from '@/state/builderStore';
+// Builder layout handles project loading internally
 
 function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const store = useBuilderStore();
 
   useEffect(() => {
+    // Check existing session
     getCurrentUser().then((u) => {
       setUser(u);
       setLoading(false);
     });
-    const sub = onAuthStateChange((u) => setUser(u));
-    return () => { sub.unsubscribe(); };
+
+    // Listen for auth changes
+    const sub = onAuthStateChange((u) => {
+      setUser(u);
+    });
+
+    return () => {
+      sub.unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    if (user) store.loadProjects();
-  }, [user?.id]);
+  const handleAuth = useCallback((u: AuthUser) => {
+    setUser(u);
+  }, []);
 
-  const handleAuth = useCallback((u: AuthUser) => { setUser(u); }, []);
-  const handleSignOut = useCallback(async () => { await signOut(); setUser(null); }, []);
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setUser(null);
+  }, []);
 
   if (loading) {
     return (
@@ -41,15 +50,19 @@ function App() {
     return (
       <>
         <AuthScreen onAuth={handleAuth} />
-        <Toaster position="bottom-center" toastOptions={{
-          style: { background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e5e5' },
-        }} />
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: { background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e5e5' },
+          }}
+        />
       </>
     );
   }
 
   return (
     <>
+      {/* User bar */}
       <div className="fixed top-0 left-0 right-0 z-[60] h-7 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-white/20 font-mono">LOTUS</span>
@@ -61,7 +74,11 @@ function App() {
             <User size={10} className="text-white/30" />
           )}
           <span className="text-[10px] text-white/40 truncate max-w-[120px]">{user.name || user.email}</span>
-          <button onClick={handleSignOut} className="p-1 rounded hover:bg-white/5 text-white/20 hover:text-white/40 transition-all" title="Sign out">
+          <button
+            onClick={handleSignOut}
+            className="p-1 rounded hover:bg-white/5 text-white/20 hover:text-white/40 transition-all"
+            title="Sign out"
+          >
             <LogOut size={10} />
           </button>
         </div>
@@ -69,9 +86,12 @@ function App() {
       <div className="pt-7 h-screen">
         <BuilderLayout user={user} />
       </div>
-      <Toaster position="bottom-center" toastOptions={{
-        style: { background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e5e5' },
-      }} />
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: { background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e5e5' },
+        }}
+      />
     </>
   );
 }

@@ -1,298 +1,664 @@
-// builderStore — Central state management for LOTUS App Builder
+/**
+ * Builder Store
+ *
+ * Zustand-based state for the app builder. Split into:
+ * - Panel UI state (mobile tabs, sidebar, preview)
+ * - Chat/history
+ * - Projects (Supabase-backed)
+ * - Providers (AI model configs)
+ *
+ * Persistence rules:
+ * - Panel UI -> localStorage
+ * - Providers -> localStorage + Supabase (if logged in)
+ * - Projects -> Supabase only (if logged in), localStorage fallback
+ * - Chat history -> per-project, stored in project record
+ */
+
 import { create } from 'zustand';
+import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type { AppSchema } from '@/lib/builder/appSchema';
-import type { Project } from '@/lib/supabase/projectStorage';
-import { loadProjects, createProject, updateProject, deleteProject, generateId } from '@/lib/supabase/projectStorage';
-import { registerProvider, unregisterProvider, listProviders, getProvider, getDefaultProviderId } from '@/lib/ai/provider';
-import { createGenericProvider } from '@/lib/ai/genericProvider';
-import { addProvider, loadStoredProviders, type StoredProvider } from '@/lib/ai/apiKeyStorage';
-import { sendMessage as aiSendMessage } from '@/lib/ai/messageHandler';
+import { createEmptySchema } from '@/lib/builder/appSchema';
+import type { ExportFormat } from '@/lib/builder/exportGenerator';
+import { providerRegistry, defaultRegistry } from '@/lib/ai/initProviders';
+import { updateProfile, getProfile } from '@/lib/supabase/profileStorage';
+import { saveProject, loadUserProjects, deleteProject, type ProjectRecord } from '@/lib/supabase/projectStorage';
+import { recordSkillUsage, loadUserSkills } from '@/lib/supabase/skillsStorage';
+import type { Skill, PrebuiltSkill } from '@/lib/skills/skillsData';
+import { skillsLibrary } from '@/lib/skills/skillsData';
+
+export type SidebarView = 'projects' | 'settings';
+export type MobileTab = 'chat' | 'preview' | 'settings';
 
 export type PreviewDevice = 'phone' | 'tablet' | 'desktop';
-export type MobileTab = 'chat' | 'preview' | 'skills' | 'projects' | 'settings';
-export type SidebarView = 'projects' | 'settings' | null;
-export type GenerationStatus = 'idle' | 'loading' | 'success' | 'failed';
 
-export interface ChatMessage { id: string; role: 'user' | 'assistant'; content: string; timestamp: number; images?: string[]; }
+export interface AIProviderConfig {
+  id: string;
+  name: string;
+  model: string;
+  apiKey: string;
+}
 
-interface AppliedChange { text: string; type: string; }
+export interface GenerationHistory {
+  timestamp: number;
+  prompt: string;
+  changesSummary: string;
+  schemaSnapshot: AppSchema;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  schema: AppSchema;
+  createdAt: number;
+  updatedAt: number;
+  history: GenerationHistory[];
+}
 
 interface BuilderState {
-  // Data
-  projects: Project[];
-  project: Project | null;
-  schema: AppSchema | null;
-  messages: ChatMessage[];
-
-  // UI State
-  previewDevice: PreviewDevice;
+  // Panel UI
   mobileTab: MobileTab;
   sidebarView: SidebarView;
   isSidebarOpen: boolean;
   showSkillsPanel: boolean;
-  providerId: string;
+  previewDevice: PreviewDevice;
+  showPreview: boolean;
 
-  // Generation State
+  // Chat
+  messages: ChatMessage[];
   isLoading: boolean;
-  isProjectsLoading: boolean;
-  generationStatus: GenerationStatus;
-  lastFailedPrompt: string | null;
-  error: string | null;
-  appliedChanges: AppliedChange[];
+  streamingMessage: string;
 
-  // Undo/Redo
-  schemaHistory: (AppSchema | null)[];
+  // Schema + History
+  schema: AppSchema;
   historyIndex: number;
+  history: AppSchema[];
+  lastFailedPrompt: string | null;
+  lastFailedMessageId: string | null;
 
-  // Internal
+  // Projects
+  projects: Project[];
+  currentProjectId: string | null;
+  isProjectsLoading: boolean;
   _currentUser: { id: string; email: string; name?: string; avatar?: string } | null;
 
-  // Actions
-  loadProjects: () => Promise<void>;
-  switchProject: (id: string) => void;
-  createNewProject: () => Promise<void>;
+  // Providers
+  providers: AIProviderConfig[];
+  providerId: string;
+
+  // Skills
+  installedSkills: Skill[];
+  activeSkillIds: string[];
+
+  // UI feedback
+  toast: { message: string; type: 'success' | 'error' | 'info' } | null;
+  generationStatus: 'idle' | 'generating' | 'applying' | 'success' | 'error';
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: number;
+  changesSummary?: string;
+  schemaSnapshot?: AppSchema;
+  isStreaming?: boolean;
+  error?: string;
+}
+
+interface BuilderActions {
+  setMobileTab: (tab: MobileTab) => void;
+  setSidebarView: (view: SidebarView) => void;
+  setSidebarOpen: (open: boolean) => void;
+  setShowSkillsPanel: (show: boolean) => void;
+  setPreviewDevice: (device: PreviewDevice) => void;
+  setShowPreview: (show: boolean) => void;
+
+  createProject: (name: string) => Project;
+  loadProject: (id: string) => void;
   deleteProject: (id: string) => void;
-  renameProject: (id: string, name: string) => void;
+  loadProjects: () => Promise<void>;
+  saveCurrentProject: () => Promise<void>;
+  migrateFromLocalStorage: () => Promise<number>;
+  setCurrentUser: (user: { id: string; email: string; name?: string; avatar?: string } | null) => void;
 
   sendMessage: (content: string) => Promise<void>;
-  retryLastMessage: () => Promise<void>;
-  uploadImage: (file: File) => Promise<void>;
-  clearError: () => void;
-  dismissChanges: () => void;
+  addMessage: (msg: ChatMessage) => void;
+  clearMessages: () => void;
 
-  setPreviewDevice: (device: PreviewDevice) => void;
-  setActiveScreen: (screenId: string) => void;
-  setMobileTab: (tab: MobileTab) => void;
-  toggleSidebar: (view: SidebarView) => void;
-  setSidebarOpen: (open: boolean) => void;
-  toggleSkillsPanel: () => void;
-  setSkillsPanel: (open: boolean) => void;
-
-  switchProvider: (id: string) => void;
-  addApiProvider: (userId: string, config: StoredProvider) => Promise<void>;
-  removeApiProvider: (id: string) => void;
-  refreshProviders: (userId: string) => Promise<void>;
-
+  updateSchema: (fn: (s: AppSchema) => AppSchema) => void;
+  replaceSchema: (schema: AppSchema) => void;
+  pushSchemaHistory: (schema: AppSchema) => void;
   undo: () => void;
   redo: () => void;
-  resetCurrentProject: () => void;
-  migrateFromLocalStorage: () => void;
+
+  addProvider: (p: AIProviderConfig) => void;
+  removeProvider: (id: string) => void;
+  setProviderId: (id: string) => void;
+  switchProvider: (id: string) => void;
+  refreshProviders: (userId: string) => Promise<void>;
+
+  installSkill: (skill: Skill) => void;
+  uninstallSkill: (id: string) => void;
+  toggleSkill: (id: string) => void;
+  useSkill: (id: string) => Promise<void>;
+
+  showToast: (t: BuilderState['toast']) => void;
+  clearToast: () => void;
+
+  resetStore: () => void;
 }
 
-function deepCloneSchema(schema: AppSchema | null): AppSchema | null {
-  if (!schema) return null;
-  return JSON.parse(JSON.stringify(schema));
-}
+const currentTimestamp = () => Date.now();
 
-const schemaSnapshot = (s: AppSchema | null) => JSON.stringify(s);
+const useBuilderStore = create<BuilderState & BuilderActions>()(
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
+        // === PANEL UI ===
+        mobileTab: 'chat',
+        sidebarView: 'projects',
+        isSidebarOpen: true,
+        showSkillsPanel: false,
+        previewDevice: 'phone',
+        showPreview: true,
 
-export const useBuilderStore = create<BuilderState>((set, get) => ({
-  projects: [],
-  project: null,
-  schema: null,
-  messages: [],
-  previewDevice: 'phone',
-  mobileTab: 'chat',
-  sidebarView: null,
-  isSidebarOpen: false,
-  showSkillsPanel: true,
-  providerId: '',
-  isLoading: false,
-  isProjectsLoading: false,
-  generationStatus: 'idle',
-  lastFailedPrompt: null,
-  error: null,
-  appliedChanges: [],
-  schemaHistory: [null],
-  historyIndex: 0,
-  _currentUser: null,
+        // === CHAT ===
+        messages: [],
+        isLoading: false,
+        streamingMessage: '',
 
-  loadProjects: async () => {
-    set({ isProjectsLoading: true });
-    try {
-      const projects = await loadProjects();
-      const project = projects[0] || null;
-      const defaultProvider = getDefaultProviderId();
-      const schemaSnapshot = deepCloneSchema(project?.schema || null);
-      set({ projects, project, messages: project?.messages || [], schema: project?.schema || null, schemaHistory: [schemaSnapshot], historyIndex: 0, generationStatus: 'idle', lastFailedPrompt: null, error: null, isProjectsLoading: false, providerId: defaultProvider, showSkillsPanel: true });
-    } catch (e) {
-      console.error('Failed to load projects:', e);
-      set({ isProjectsLoading: false });
-    }
-  },
+        // === SCHEMA + HISTORY ===
+        schema: createEmptySchema(),
+        historyIndex: 0,
+        history: [createEmptySchema()],
+        lastFailedPrompt: null,
+        lastFailedMessageId: null,
 
-  switchProject: (id) => {
-    const project = get().projects.find(p => p.id === id) || null;
-    if (project) {
-      set({ project, messages: project.messages || [], schema: project.schema || null, schemaHistory: [deepCloneSchema(project.schema || null)], historyIndex: 0, error: null });
-    }
-  },
+        // === PROJECTS ===
+        projects: [],
+        currentProjectId: null,
+        isProjectsLoading: false,
+        _currentUser: null,
 
-  createNewProject: async () => {
-    const newProject = await createProject('New Project');
-    set(state => ({ projects: [newProject, ...state.projects], project: newProject, messages: [], schema: newProject.schema || null, schemaHistory: [deepCloneSchema(newProject.schema || null)], historyIndex: 0, error: null }));
-  },
+        // === PROVIDERS ===
+        providers: [],
+        providerId: '',
 
-  deleteProject: async (id) => {
-    await deleteProject(id);
-    const projects = get().projects.filter(p => p.id !== id);
-    const project = projects[0] || null;
-    set({ projects, project, messages: project?.messages || [], schema: project?.schema || null, schemaHistory: [deepCloneSchema(project?.schema || null)], historyIndex: 0 });
-  },
+        // === SKILLS ===
+        installedSkills: [],
+        activeSkillIds: [],
 
-  renameProject: async (id, name) => {
-    const project = get().projects.find(p => p.id === id);
-    if (!project) return;
-    const updated = { ...project, name, updatedAt: Date.now() };
-    await updateProject(updated);
-    set(state => ({ projects: state.projects.map(p => p.id === id ? updated : p), project: state.project?.id === id ? updated : state.project }));
-  },
+        // === UI FEEDBACK ===
+        toast: null,
+        generationStatus: 'idle',
 
-  sendMessage: async (content) => {
-    const state = get();
-    if (!state.project) return;
-    set({ isLoading: true, generationStatus: 'loading', error: null, lastFailedPrompt: null });
+        // === PANEL UI ACTIONS ===
+        setMobileTab: (tab) => set({ mobileTab: tab }),
+        setSidebarView: (view) => set({ sidebarView: view }),
+        setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+        setShowSkillsPanel: (show) => set({ showSkillsPanel: show }),
+        setPreviewDevice: (device) => set({ previewDevice: device }),
+        setShowPreview: (show) => set({ showPreview: show }),
 
-    try {
-      const userMessage: ChatMessage = { id: generateId(), role: 'user', content, timestamp: Date.now() };
-      const updatedMessages = [...state.messages, userMessage];
-      set({ messages: updatedMessages });
+        // === SET CURRENT USER ===
+        setCurrentUser: (user) => {
+          set({ _currentUser: user });
+        },
 
-      const result = await aiSendMessage(content, state.schema, state.providerId);
+        // === PROJECT ACTIONS ===
+        createProject: (name) => {
+          const schema = createEmptySchema(name);
+          const project: Project = {
+            id: crypto.randomUUID(),
+            name,
+            schema,
+            createdAt: currentTimestamp(),
+            updatedAt: currentTimestamp(),
+            history: [],
+          };
+          set({
+            projects: [...get().projects, project],
+            currentProjectId: project.id,
+            schema,
+            history: [schema],
+            historyIndex: 0,
+            messages: [],
+          });
+          return project;
+        },
 
-      if (result.error) {
-        set({ isLoading: false, generationStatus: 'failed', error: result.error, lastFailedPrompt: content });
-        return;
-      }
+        loadProject: (id) => {
+          const project = get().projects.find((p) => p.id === id);
+          if (!project) return;
+          set({
+            currentProjectId: id,
+            schema: project.schema,
+            history: [project.schema],
+            historyIndex: 0,
+            messages: [],
+          });
+        },
 
-      const assistantMessage: ChatMessage = { id: generateId(), role: 'assistant', content: result.message, timestamp: Date.now() };
-      const finalMessages = [...updatedMessages, assistantMessage];
+        deleteProject: (id) => {
+          set({
+            projects: get().projects.filter((p) => p.id !== id),
+            currentProjectId: get().currentProjectId === id ? null : get().currentProjectId,
+          });
+        },
 
-      if (result.patches && result.patches.length > 0) {
-        const newSchema = deepCloneSchema(state.schema);
-        if (newSchema) {
-          for (const patch of result.patches) {
-            if (patch.op === 'addScreen') newSchema.screens.push(patch.screen);
-            else if (patch.op === 'addComponent') {
-              const screen = newSchema.screens.find(s => s.id === patch.screenId);
-              if (screen) { screen.components = screen.components || []; screen.components.push(patch.component); }
+        loadProjects: async () => {
+          const user = get()._currentUser;
+          if (!user) return;
+          set({ isProjectsLoading: true });
+          try {
+            await get().refreshProviders(user.id);
+            const remoteProjects = await loadUserProjects(user.id);
+            const localProjects = get().projects;
+            const merged = [...localProjects];
+            for (const rp of remoteProjects) {
+              const existing = merged.find((p) => p.id === rp.id);
+              if (existing) {
+                existing.name = rp.name;
+                existing.schema = rp.schema as AppSchema;
+                existing.updatedAt = new Date(rp.updated_at).getTime();
+              } else {
+                merged.push({
+                  id: rp.id,
+                  name: rp.name,
+                  schema: rp.schema as AppSchema,
+                  createdAt: new Date(rp.created_at).getTime(),
+                  updatedAt: new Date(rp.updated_at).getTime(),
+                  history: [],
+                });
+              }
+            }
+            set({ projects: merged, isProjectsLoading: false });
+          } catch (e) {
+            console.error('[LOTUS] Failed to load projects:', e);
+            set({ isProjectsLoading: false });
+          }
+        },
+
+        saveCurrentProject: async () => {
+          const state = get();
+          if (!state._currentUser || !state.currentProjectId) return;
+          const project = state.projects.find((p) => p.id === state.currentProjectId);
+          if (!project) return;
+          try {
+            await saveProject(state._currentUser.id, {
+              id: project.id,
+              name: project.name,
+              schema: project.schema,
+              updated_at: new Date().toISOString(),
+            });
+          } catch (e) {
+            console.error('[LOTUS] Failed to save project:', e);
+          }
+        },
+
+        migrateFromLocalStorage: async () => {
+          const keys = Object.keys(localStorage).filter((k) => k.startsWith('lotus_project_'));
+          let migrated = 0;
+          for (const key of keys) {
+            try {
+              const data = JSON.parse(localStorage.getItem(key) || '{}');
+              if (data.name && data.schema) {
+                get().createProject(data.name);
+                migrated++;
+              }
+            } catch {
+              // skip
             }
           }
-        }
-        const updatedProject = { ...state.project, schema: newSchema, messages: finalMessages, updatedAt: Date.now() };
-        await updateProject(updatedProject);
-        const newHistory = [...state.schemaHistory.slice(0, state.historyIndex + 1), deepCloneSchema(newSchema)];
-        set({ project: updatedProject, messages: finalMessages, schema: newSchema, isLoading: false, generationStatus: 'success', appliedChanges: result.patches.map(p => ({ text: p.description || p.op, type: p.op })), schemaHistory: newHistory, historyIndex: newHistory.length - 1 });
-      } else {
-        const updatedProject = { ...state.project, messages: finalMessages, updatedAt: Date.now() };
-        await updateProject(updatedProject);
-        set({ project: updatedProject, messages: finalMessages, isLoading: false, generationStatus: 'success' });
+          return migrated;
+        },
+
+        // === CHAT ACTIONS ===
+        sendMessage: async (content: string) => {
+          const state = get();
+          if (state.isLoading) return;
+
+          const currentProvider = state.providers.find((p) => p.id === state.providerId);
+          if (!currentProvider) {
+            const noProviderMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: 'system',
+              content: 'No AI provider configured. Add an API key in Settings.',
+              timestamp: currentTimestamp(),
+            };
+            set({ messages: [...state.messages, noProviderMsg] });
+            return;
+          }
+
+          const userMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: 'user',
+            content,
+            timestamp: currentTimestamp(),
+          };
+          set({
+            messages: [...get().messages, userMsg],
+            isLoading: true,
+            generationStatus: 'generating',
+            lastFailedPrompt: null,
+            lastFailedMessageId: null,
+          });
+
+          const assistantId = crypto.randomUUID();
+          set({
+            messages: [
+              ...get().messages,
+              {
+                id: assistantId,
+                role: 'assistant',
+                content: '',
+                timestamp: currentTimestamp(),
+                isStreaming: true,
+              },
+            ],
+            streamingMessage: '',
+          });
+
+          try {
+            const response = await fetch(currentProvider.apiEndpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentProvider.apiKey}`,
+              },
+              body: JSON.stringify({
+                model: currentProvider.model,
+                messages: [
+                  { role: 'system', content: providerRegistry.getSystemPrompt(currentProvider.model) },
+                  ...get().messages
+                    .filter((m) => m.role === 'user' || m.role === 'assistant')
+                    .slice(-10)
+                    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+                  { role: 'user', content },
+                ],
+                stream: true,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`API error: ${response.status}`);
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('No response body');
+
+            let fullContent = '';
+            const decoder = new TextDecoder();
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\n').filter((l) => l.trim());
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  if (data === '[DONE]') continue;
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content || '';
+                    fullContent += content;
+                    set({ streamingMessage: fullContent });
+                  } catch {
+                    // skip parse errors in stream
+                  }
+                }
+              }
+            }
+
+            const schemaPatch = providerRegistry.parseSchemaFromResponse(
+              currentProvider.model,
+              fullContent
+            );
+
+            set({ generationStatus: 'applying' });
+
+            const currentSchema = get().schema;
+            const updatedSchema = { ...currentSchema };
+            if (schemaPatch.screens) {
+              updatedSchema.screens = schemaPatch.screens.map(
+                (s: any) => ({
+                  ...s,
+                  components: s.components || [],
+                })
+              );
+            }
+            if (schemaPatch.theme) {
+              updatedSchema.theme = { ...currentSchema.theme, ...schemaPatch.theme };
+            }
+            if (schemaPatch.features) {
+              updatedSchema.features = schemaPatch.features;
+            }
+
+            const changesSummary = `${schemaPatch.screens?.length || 0} screens, ${schemaPatch.features?.length || 0} features`;
+
+            get().pushSchemaHistory(updatedSchema);
+
+            set((s) => ({
+              messages: s.messages.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: fullContent,
+                      isStreaming: false,
+                      changesSummary,
+                      schemaSnapshot: updatedSchema,
+                    }
+                  : m
+              ),
+              streamingMessage: '',
+              isLoading: false,
+              generationStatus: 'success',
+              schema: updatedSchema,
+            }));
+
+            // Persist
+            const state2 = get();
+            if (state2._currentUser && state2.currentProjectId) {
+              await get().saveCurrentProject();
+            }
+          } catch (error: any) {
+            console.error('[LOTUS] Generation failed:', error);
+            set((s) => ({
+              messages: s.messages.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: 'Sorry, generation failed. Please check your API key and try again.',
+                      isStreaming: false,
+                      error: error.message || 'Unknown error',
+                    }
+                  : m
+              ),
+              streamingMessage: '',
+              isLoading: false,
+              generationStatus: 'error',
+              lastFailedPrompt: content,
+              lastFailedMessageId: assistantId,
+            }));
+          }
+        },
+
+        addMessage: (msg) =>
+          set({ messages: [...get().messages, msg] }),
+
+        clearMessages: () => set({ messages: [] }),
+
+        // === SCHEMA ACTIONS ===
+        updateSchema: (fn) => {
+          const newSchema = fn(get().schema);
+          set({ schema: newSchema });
+        },
+
+        replaceSchema: (schema) => {
+          set({ schema, history: [schema], historyIndex: 0 });
+        },
+
+        pushSchemaHistory: (schema) => {
+          const state = get();
+          const newHistory = state.history.slice(0, state.historyIndex + 1);
+          newHistory.push(schema);
+          set({
+            history: newHistory,
+            historyIndex: newHistory.length - 1,
+            schema,
+          });
+        },
+
+        undo: () => {
+          const state = get();
+          if (state.historyIndex <= 0) return;
+          const newIndex = state.historyIndex - 1;
+          set({ historyIndex: newIndex, schema: state.history[newIndex] });
+        },
+
+        redo: () => {
+          const state = get();
+          if (state.historyIndex >= state.history.length - 1) return;
+          const newIndex = state.historyIndex + 1;
+          set({ historyIndex: newIndex, schema: state.history[newIndex] });
+        },
+
+        // === PROVIDER ACTIONS ===
+        addProvider: (p) => {
+          const providers = [...get().providers, p];
+          const isFirst = providers.length === 1;
+          set({
+            providers,
+            providerId: isFirst ? p.id : get().providerId,
+          });
+        },
+
+        removeProvider: (id) => {
+          const providers = get().providers.filter((p) => p.id !== id);
+          set({
+            providers,
+            providerId: providers.length > 0 ? providers[0].id : '',
+          });
+        },
+
+        setProviderId: (id) => set({ providerId: id }),
+
+        switchProvider: (id) => set({ providerId: id }),
+
+        refreshProviders: async (userId) => {
+          try {
+            const profile = await getProfile(userId);
+            if (profile?.ai_providers) {
+              const remoteProviders = JSON.parse(profile.ai_providers as string);
+              if (Array.isArray(remoteProviders) && remoteProviders.length > 0) {
+                const existing = get().providers;
+                const merged = [...existing];
+                for (const rp of remoteProviders) {
+                  if (!merged.find((p) => p.id === rp.id)) {
+                    merged.push(rp);
+                  }
+                }
+                const newId = get().providerId || merged[0]?.id || '';
+                set({ providers: merged, providerId: newId });
+                return;
+              }
+            }
+          } catch {
+            // fallback to localStorage (handled by persist middleware)
+          }
+          const local = get().providers;
+          if (local.length === 0) {
+            // seed with one default provider
+            set({ providers: defaultRegistry, providerId: defaultRegistry[0]?.id || '' });
+          }
+        },
+
+        // === SKILL ACTIONS ===
+        installSkill: (skill) => {
+          const existing = get().installedSkills.find((s) => s.id === skill.id);
+          if (!existing) {
+            set({ installedSkills: [...get().installedSkills, skill] });
+          }
+        },
+
+        uninstallSkill: (id) => {
+          set({
+            installedSkills: get().installedSkills.filter((s) => s.id !== id),
+            activeSkillIds: get().activeSkillIds.filter((sid) => sid !== id),
+          });
+        },
+
+        toggleSkill: (id) => {
+          const active = get().activeSkillIds;
+          if (active.includes(id)) {
+            set({ activeSkillIds: active.filter((sid) => sid !== id) });
+          } else {
+            set({ activeSkillIds: [...active, id] });
+          }
+        },
+
+        useSkill: async (id) => {
+          const skill = get().installedSkills.find((s) => s.id === id);
+          if (!skill) return;
+          set({ isLoading: true });
+          try {
+            if (get()._currentUser) {
+              await recordSkillUsage(get()._currentUser.id, skill.id);
+            }
+          } catch {
+            // non-critical
+          }
+          await get().sendMessage(skill.systemPrompt);
+          set({ isLoading: false });
+        },
+
+        // === TOAST ===
+        showToast: (t) => set({ toast: t }),
+        clearToast: () => set({ toast: null }),
+
+        // === RESET ===
+        resetStore: () => {
+          set({
+            messages: [],
+            isLoading: false,
+            streamingMessage: '',
+            schema: createEmptySchema(),
+            history: [createEmptySchema()],
+            historyIndex: 0,
+            currentProjectId: null,
+            projects: [],
+            providers: [],
+            providerId: '',
+            toast: null,
+            generationStatus: 'idle',
+            lastFailedPrompt: null,
+            lastFailedMessageId: null,
+          });
+        },
+      }),
+      {
+        name: 'lotus-builder',
+        partialize: (state) => ({
+          isSidebarOpen: state.isSidebarOpen,
+          previewDevice: state.previewDevice,
+          showPreview: state.showPreview,
+          sidebarView: state.sidebarView,
+          providers: state.providers,
+          providerId: state.providerId,
+          installedSkills: state.installedSkills,
+          activeSkillIds: state.activeSkillIds,
+          projects: state.projects,
+          currentProjectId: state.currentProjectId,
+          schema: state.schema,
+          history: state.history,
+          historyIndex: state.historyIndex,
+          messages: state.messages,
+        }),
       }
-    } catch (e) {
-      set({ isLoading: false, generationStatus: 'failed', error: e instanceof Error ? e.message : 'Unknown error', lastFailedPrompt: content });
-    }
-  },
+    )
+  )
+);
 
-  retryLastMessage: async () => {
-    const { lastFailedPrompt } = get();
-    if (lastFailedPrompt) await get().sendMessage(lastFailedPrompt);
-  },
-
-  uploadImage: async (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const state = get();
-        if (!state.schema || !state.project) { reject(new Error('No project')); return; }
-        const newSchema = deepCloneSchema(state.schema);
-        if (!newSchema) { reject(new Error('No schema')); return; }
-        const imageId = generateId();
-        newSchema.imageAssets = newSchema.imageAssets || [];
-        newSchema.imageAssets.push({ id: imageId, name: file.name, dataUrl: base64, mimeType: file.type });
-        const updatedProject = { ...state.project, schema: newSchema, updatedAt: Date.now() };
-        await updateProject(updatedProject);
-        set({ schema: newSchema, project: updatedProject });
-        resolve(imageId);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-  },
-
-  clearError: () => set({ error: null }),
-  dismissChanges: () => set({ appliedChanges: [] }),
-
-  setPreviewDevice: (device) => set({ previewDevice: device }),
-  setActiveScreen: (screenId) => {
-    const state = get();
-    if (state.schema) {
-      const newSchema = deepCloneSchema(state.schema);
-      if (newSchema) newSchema.activeScreenId = screenId;
-      set({ schema: newSchema });
-    }
-  },
-  setMobileTab: (tab) => set({ mobileTab: tab }),
-  toggleSidebar: (view) => set(s => ({ sidebarView: view, isSidebarOpen: true })),
-  setSidebarOpen: (open) => set({ isSidebarOpen: open }),
-  toggleSkillsPanel: () => set(s => ({ showSkillsPanel: !s.showSkillsPanel })),
-  setSkillsPanel: (open) => set({ showSkillsPanel: open }),
-
-  switchProvider: (id) => set({ providerId: id }),
-  addApiProvider: async (userId, config) => {
-    await addProvider(userId, config);
-    registerProvider(config.id, createGenericProvider(config.id, config.name, config.apiKey, config.baseUrl, config.model));
-    set({ providerId: config.id, error: null });
-  },
-  removeApiProvider: (id) => {
-    unregisterProvider(id);
-    const providers = listProviders();
-    const state = get();
-    if (state.providerId === id) { const nextProvider = providers[0]; set({ providerId: nextProvider?.id || '' }); }
-  },
-  refreshProviders: async (userId) => {
-    const stored = await loadStoredProviders(userId);
-    for (const config of stored) {
-      if (config.apiKey && config.apiKey.length > 10) {
-        registerProvider(config.id, createGenericProvider(config.id, config.name, config.apiKey, config.baseUrl, config.model));
-      }
-    }
-  },
-
-  undo: () => {
-    const state = get();
-    if (state.historyIndex <= 0) return;
-    const newIndex = state.historyIndex - 1;
-    const restoredSchema = deepCloneSchema(state.schemaHistory[newIndex]);
-    const updatedProject = state.project ? { ...state.project, schema: restoredSchema, updatedAt: Date.now() } : null;
-    if (updatedProject) updateProject(updatedProject);
-    set({ schema: restoredSchema, project: updatedProject, historyIndex: newIndex, appliedChanges: [] });
-  },
-
-  redo: () => {
-    const state = get();
-    if (state.historyIndex >= state.schemaHistory.length - 1) return;
-    const newIndex = state.historyIndex + 1;
-    const restoredSchema = deepCloneSchema(state.schemaHistory[newIndex]);
-    const updatedProject = state.project ? { ...state.project, schema: restoredSchema, updatedAt: Date.now() } : null;
-    if (updatedProject) updateProject(updatedProject);
-    set({ schema: restoredSchema, project: updatedProject, historyIndex: newIndex, appliedChanges: [] });
-  },
-
-  resetCurrentProject: () => {
-    const state = get();
-    if (!state.project) return;
-    const emptySchema: AppSchema = { name: 'New App', screens: [{ id: 'home', name: 'Home', title: 'Home', components: [] }], navigation: { type: 'none' }, activeScreenId: 'home', theme: { primaryColor: '#E3B26D', backgroundColor: '#0a0a0a', textColor: '#F5EDE3' }, imageAssets: [] };
-    const updatedProject = { ...state.project, schema: emptySchema, messages: [], updatedAt: Date.now() };
-    updateProject(updatedProject);
-    set({ schema: emptySchema, project: updatedProject, messages: [], schemaHistory: [deepCloneSchema(emptySchema)], historyIndex: 0 });
-  },
-
-  migrateFromLocalStorage: () => {
-    try {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('lotus_'));
-      keys.forEach(k => localStorage.removeItem(k));
-      set({ error: null });
-    } catch { /* noop */ }
-  },
-}));
+export { useBuilderStore };
+export type { BuilderState, BuilderActions, Project, GenerationHistory };

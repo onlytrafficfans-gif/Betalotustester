@@ -1,57 +1,48 @@
-// usePWA hook — Detect installability and manage PWA state
 import { useState, useEffect, useCallback } from 'react';
 
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-  prompt(): Promise<void>;
-}
-
-export interface PWAState {
+interface PWAState {
   canInstall: boolean;
-  isInstalled: boolean;
   isStandalone: boolean;
   deferredPrompt: BeforeInstallPromptEvent | null;
   install: () => Promise<boolean>;
-  dismiss: () => void;
+}
+
+// BeforeInstallPromptEvent is not in standard DOM types
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  prompt(): Promise<void>;
 }
 
 export function usePWA(): PWAState {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [canInstall, setCanInstall] = useState(false);
-  const isStandalone = useIsStandalone();
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
 
   useEffect(() => {
-    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e as BeforeInstallPromptEvent); setCanInstall(true); };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    const handler = (e: BeforeInstallPromptEvent) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler as EventListener);
+    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
   }, []);
 
-  const install = useCallback(async (): Promise<boolean> => {
+  const install = useCallback(async () => {
     if (!deferredPrompt) return false;
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     setDeferredPrompt(null);
-    setCanInstall(outcome === 'dismissed');
+    setCanInstall(false); // prompt consumed — can't install again without a new event
     return outcome === 'accepted';
   }, [deferredPrompt]);
 
-  const dismiss = useCallback(() => { setCanInstall(false); setDeferredPrompt(null); }, []);
-
-  return { canInstall: canInstall && !isStandalone, isInstalled: isStandalone, isStandalone, deferredPrompt, install, dismiss };
-}
-
-function useIsStandalone(): boolean {
-  const [standalone, setStandalone] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as { standalone?: boolean }).standalone === true;
-      setStandalone(isStandalone);
-    };
-    check();
-    const mq = window.matchMedia('(display-mode: standalone)');
-    mq.addEventListener?.('change', check);
-    return () => mq.removeEventListener?.('change', check);
-  }, []);
-  return standalone;
+  return { canInstall, isStandalone, deferredPrompt, install };
 }
