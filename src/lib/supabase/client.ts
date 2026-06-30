@@ -1,0 +1,9 @@
+// Supabase client — initialized with publishable key
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = 'https://orghdwyqtpzfspevqhey.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yZ2hkd3lxdHB6ZnNwZXZxaGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3ODIyNjcsImV4cCI6MjA5ODM1ODI2N30.SUIZD2sizy3WBS-l7C24lgfSuZFhlNi1m1EtH1524T0';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+});
