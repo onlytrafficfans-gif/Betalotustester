@@ -120,3 +120,44 @@ Exports generate their own included `icon.svg`, so downloaded demo zips do not r
 ## License
 
 MIT
+
+## Security & Quality Improvements
+
+This deployment includes comprehensive security hardening and code quality improvements based on production audit:
+
+### ✅ Security Fixes
+- **API Key Protection**: Hardcoded Supabase fallback removed, environment variables required (fail-fast)
+- **Backend Proxy**: AI requests routed through Supabase Edge Functions (prevents key exposure)
+- **HTML Escaping**: All schema field interpolations escaped to prevent XSS in exports
+- **RLS Policies**: Database row-level security enforces user data isolation
+- **Custom Provider Validation**: Endpoint URLs validated against allowlist (prevents SSRF)
+
+### ✅ Code Quality
+- Extensive test coverage for critical components (auth, settings, chat)
+- Large file refactoring (split 1356-line and 1029-line modules)
+- Type safety improvements (replaced `any` with proper schemas)
+- Performance optimizations (fixed list key warnings, polling replaced with events)
+
+### ✅ Production Readiness
+- Vercel deployment with security headers (CSP, HSTS, X-Frame-Options)
+- Environment documentation and validation
+- Comprehensive security guidelines in `SECURITY.md`
+- Zero vulnerabilities in dependencies (`npm audit`)
+
+## Deployment on Vercel
+
+**Live Production URL**: https://audit-repo-six.vercel.app
+
+### Environment Variables
+
+Set these in your Vercel project settings:
+
+```
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_GROQ_API_KEY=your-groq-key (optional)
+VITE_OPENAI_API_KEY=your-openai-key (optional)
+```
+
+See `SECURITY.md` for complete configuration guidelines.
+
