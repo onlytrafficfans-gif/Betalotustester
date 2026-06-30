@@ -1,11 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "env": {
-    "VITE_AI_PROVIDER": "@VITE_AI_PROVIDER",
-    "VITE_GROQ_API_KEY": "@VITE_GROQ_API_KEY",
-    "VITE_OPENAI_API_KEY": "@VITE_OPENAI_API_KEY"
-  },
   "headers": [
     {
       "source": "/assets/(.*)",
