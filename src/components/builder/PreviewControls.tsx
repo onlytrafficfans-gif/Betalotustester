@@ -2,30 +2,22 @@
 
 import { useState } from 'react';
 import { useBuilderStore } from '@/state/builderStore';
-import { generateExportFiles } from '@/lib/builder/exportGenerator';
-import { exportToZip } from '@/lib/builder/exportGenerator';
+import { generateExportFiles, exportToZip } from '@/lib/builder/exportGenerator';
 import { QRPreview } from './QRPreview';
 import { DeployPanel } from './DeployPanel';
 import { Undo2, Redo2, Code, Download, QrCode, Rocket } from 'lucide-react';
 
 export function PreviewControls() {
-  const { undo, redo, historyIndex, schemaHistory, schema, previewDevice, setPreviewDevice } = useBuilderStore();
+  const { undo, redo, historyIndex, schemaHistory, schema } = useBuilderStore();
   const [isExporting, setIsExporting] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showDeploy, setShowDeploy] = useState(false);
-
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < schemaHistory.length - 1;
 
   const handleExport = async () => {
-    if (!schema) return;
-    setIsExporting(true);
-    try {
-      const files = generateExportFiles(schema);
-      await exportToZip(files, schema.name);
-    } catch (e) {
-      console.error('Export failed:', e);
-    }
+    if (!schema) return; setIsExporting(true);
+    try { const files = generateExportFiles(schema); await exportToZip(files, schema.name); } catch (e) { console.error('Export failed:', e); }
     setIsExporting(false);
   };
 
@@ -44,12 +36,10 @@ export function PreviewControls() {
   );
 }
 
-function CB({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean }) {
+function CB({ icon, label, onClick, disabled }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; }) {
   return (
     <button onClick={onClick} disabled={disabled} title={label}
-      className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] transition-all ${
-        disabled ? 'text-white/10 cursor-not-allowed' : 'text-white/30 hover:text-white/50 hover:bg-white/5'
-      }`}>
+      className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] transition-all ${disabled ? 'text-white/10 cursor-not-allowed' : 'text-white/30 hover:text-white/50 hover:bg-white/5'}`}>
       {icon}
     </button>
   );

@@ -1,5 +1,4 @@
 // FloatingToolbar — Floating toggle buttons for panel visibility
-// Desktop only. Users control which panels are visible.
 
 import { useBuilderStore } from '@/state/builderStore';
 import { FolderOpen, Wand2, Settings, MessageSquare } from 'lucide-react';
@@ -24,14 +23,10 @@ export function FloatingToolbar() {
   );
 }
 
-function ToolbarButton({ icon, label, active, onClick, disabled }: {
-  icon: React.ReactNode; label: string; active: boolean; onClick: () => void; disabled?: boolean;
-}) {
+function ToolbarButton({ icon, label, active, onClick, disabled }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void; disabled?: boolean; }) {
   return (
     <button onClick={onClick} disabled={disabled} title={label}
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all ${
-        disabled ? 'text-white/15 cursor-default' : active ? 'bg-lotus-400/10 text-lotus-400' : 'text-white/30 hover:text-white/60 hover:bg-white/5'
-      }`}>
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all ${disabled ? 'text-white/15 cursor-default' : active ? 'bg-lotus-400/10 text-lotus-400' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}>
       {icon}<span className="hidden xl:inline">{label}</span>
     </button>
   );

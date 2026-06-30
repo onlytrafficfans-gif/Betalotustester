@@ -1,5 +1,4 @@
-// LivePreview — Live phone/tablet/desktop preview
-// Reactive rendering: schema changes appear immediately without remounting
+// LivePreview — Live phone/tablet/desktop preview with reactive rendering
 
 import { useCallback } from 'react';
 import { useBuilderStore } from '@/state/builderStore';

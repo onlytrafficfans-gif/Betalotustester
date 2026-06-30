@@ -8,10 +8,7 @@ interface State { hasError: boolean; error: Error | null; }
 
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null };
-
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
+  static getDerivedStateFromError(error: Error): State { return { hasError: true, error }; }
 
   render() {
     if (this.state.hasError) {
@@ -22,10 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <h2 className="text-base font-semibold text-white/80 mb-2">Something went wrong</h2>
           <p className="text-xs text-white/30 max-w-xs mb-1">{this.state.error?.message}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 transition-all"
-          >
+          <button onClick={() => window.location.reload()} className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 transition-all">
             <RotateCcw size={12} /> Reload
           </button>
         </div>
