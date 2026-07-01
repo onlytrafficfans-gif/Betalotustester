@@ -336,7 +336,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
             await saveProject(user.id, { id: project.id, name: project.name, schema: project.schema });
           } catch (error) {
             console.error('[LOTUS] Failed to save project remotely:', error);
-            set({ error: 'Project changes are local only. Supabase project storage could not be reached.' });
+            set({ error: 'Project changes are local only. Supabase project storage could not be reached. Run supabase/migrations/001_lotus_demo_schema.sql in your Supabase project.' });
           }
         },
         migrateFromLocalStorage: async () => 0,

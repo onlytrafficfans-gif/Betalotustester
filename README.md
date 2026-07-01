@@ -40,6 +40,23 @@ Provider keys entered in Settings are demo keys stored client-side/account-side 
 
 **For production deployments, AI requests must go through a backend proxy.** See `src/lib/ai/backendProxy.ts` for the recommended structure. Never expose real API keys in client-side code that ships to users.
 
+## Supabase Database Setup
+
+If the app shows `Project changes are local only. Supabase project storage could not be reached.`, the configured Supabase project is missing the LOTUS tables or RLS policies.
+
+Run this file in the Supabase SQL editor for the same project used by `VITE_SUPABASE_URL`:
+
+```text
+supabase/migrations/001_lotus_demo_schema.sql
+```
+
+Required Vercel/local environment variables:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
 ## Architecture
 
 ```
