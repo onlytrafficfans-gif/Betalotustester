@@ -126,7 +126,7 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
   const showMobileSkills = mobileTab === 'skills';
 
   return (
-    <div className="h-full max-w-full overflow-hidden bg-[#05070d] text-white">
+    <div className="flex h-full max-w-full flex-col overflow-hidden bg-[#05070d] text-white">
       <PWAInstallPrompt />
       <FirstLoginHints userId={user.id} />
 

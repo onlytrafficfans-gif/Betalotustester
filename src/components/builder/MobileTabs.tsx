@@ -15,13 +15,13 @@ export function MobileTabs() {
   const { mobileTab, setMobileTab } = useBuilderStore();
   return (
     <nav className="md:hidden shrink-0 border-t border-white/5 bg-[#0a0a0a] z-50 pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around px-2 min-h-[58px]">
+      <div className="grid min-h-[58px] grid-cols-5 items-center px-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = mobileTab === tab.id;
           return (
             <button key={tab.id} onClick={() => setMobileTab(tab.id)}
-              className={`flex flex-col items-center gap-0.5 py-2 px-3 rounded-lg transition-all ${isActive ? 'text-lotus-400' : 'text-white/20 hover:text-white/40'}`}>
+              className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition-all ${isActive ? 'text-lotus-400' : 'text-white/20 hover:text-white/40'}`}>
               <Icon size={18} /><span className="text-[9px] font-medium">{tab.label}</span>
             </button>
           );
