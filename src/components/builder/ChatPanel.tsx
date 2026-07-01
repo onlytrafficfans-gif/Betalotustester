@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useBuilderStore } from '@/state/builderStore';
 import { ChatInput } from './ChatInput';
 import { ToolsBar } from './ToolsBar';
-import { User, Loader2, AlertCircle, Sparkles, Zap, CheckCircle2, X, ChevronDown, ChevronUp, RotateCcw, MessageSquare, Activity, Palette, ArrowRight } from 'lucide-react';
+import { User, Loader2, AlertCircle, Sparkles, Zap, CheckCircle2, X, ChevronDown, ChevronUp, RotateCcw, MessageSquare, Activity, Palette, ArrowRight, Crown } from 'lucide-react';
 
 const REAL_PROMPTS = [
   { label: 'Fitness Tracker', text: 'Build me a fitness tracking app with a dark dashboard showing weekly workout stats, a workout timer screen, progress charts, and a profile screen. Use green (#22c55e) as the primary color with black (#0a0a0a) backgrounds. Add bottom navigation with Home, Workouts, Profile tabs. Include realistic sample data.' },
@@ -32,15 +32,23 @@ export function ChatPanel() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-[#08101b]">
       {/* Header */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
-        <div className="min-w-0">
+      <div className="flex h-[76px] shrink-0 items-center justify-between border-b border-white/[0.06] px-6 pt-[env(safe-area-inset-top)] md:h-11 md:px-4 md:pt-0">
+        <div className="hidden min-w-0 md:block">
           <h2 className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-white/64">Chat Builder</h2>
           <p className="truncate text-[10px] text-white/25">{project?.name || 'LOTUS Agent'}</p>
         </div>
+        <div className="flex min-w-0 items-center gap-3 md:hidden">
+          <LotusLogo className="h-10 w-10 rounded-lg" />
+          <div className="flex items-baseline gap-3">
+            <span className="text-2xl font-semibold tracking-wide text-white/92">LOTUS</span>
+            <span className="text-base text-white/45">App Builder</span>
+          </div>
+        </div>
         <button onClick={() => createNewProject()} className="sr-only">New</button>
-        <span className="rounded-lg p-1.5 text-white/35" aria-hidden="true" title="Chat panel">
+        <span className="hidden rounded-lg p-1.5 text-white/35 md:block" aria-hidden="true" title="Chat panel">
           <X size={15} />
         </span>
+        <Crown size={24} className="text-lotus-400 md:hidden" />
       </div>
 
       {/* Messages */}
@@ -73,12 +81,12 @@ export function ChatPanel() {
 
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-            <div className="mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-full border border-lotus-400/15 bg-lotus-400/[0.07] shadow-[0_0_50px_rgba(20,184,166,0.12)]">
-              <Sparkles size={34} className="text-lotus-300/80" />
+            <div className="mb-5 flex h-[82px] w-[82px] items-center justify-center rounded-full border border-lotus-400/15 bg-lotus-400/[0.07] shadow-[0_0_70px_rgba(20,184,166,0.14)] md:h-[72px] md:w-[72px]">
+              <Sparkles size={38} className="text-lotus-300/80 md:h-[34px] md:w-[34px]" />
             </div>
             <span className="sr-only">LOTUS Agent</span>
-            <h3 className="mb-2 text-2xl font-semibold text-white/90">Agent \ Skills</h3>
-            <p className="mb-10 max-w-md text-sm leading-relaxed text-white/48">
+            <h3 className="mb-2 text-3xl font-semibold text-white/90 md:text-2xl">Agent \ Skills</h3>
+            <p className="mb-10 max-w-md text-lg leading-relaxed text-white/48 md:text-sm">
               Describe what you want to build - apps, agents, or full products.
             </p>
             <div className="grid w-full max-w-[460px] grid-cols-1 gap-3">

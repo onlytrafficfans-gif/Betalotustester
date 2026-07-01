@@ -11,10 +11,13 @@ import {
   CircleHelp,
   Copy,
   Database,
+  CreditCard,
   FolderOpen,
+  Flame,
   Github,
   LayoutGrid,
   Lock,
+  Mail,
   MessageSquare,
   Palette,
   Plus,
@@ -43,7 +46,6 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { SettingsPanel } from './SettingsPanel';
 import { SkillsAgentsPanel } from './SkillsAgentsPanel';
 import { FirstLoginHints } from './FirstLoginHints';
-import { GitHubPanel } from './GitHubPanel';
 
 interface BuilderLayoutProps {
   user: AuthUser;
@@ -157,6 +159,12 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
             />
           )}
 
+          {activeOverlay === 'skills' && (
+            <section className="hidden h-full w-[250px] shrink-0 overflow-hidden rounded-md border border-white/[0.08] bg-[#08101b] xl:block">
+              <SkillsAgentsPanel onClose={closeOverlay} />
+            </section>
+          )}
+
           <main className="min-w-[380px] flex-1 overflow-hidden rounded-md border border-white/[0.08] bg-[#08101b]">
             <ErrorBoundary>
               <ChatPanel />
@@ -194,14 +202,31 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
         </section>
 
         <section className={`${showMobileProjects || showMobileSettings || showMobileSkills ? 'flex' : 'hidden'} min-h-0 flex-1 bg-[#0a0a0a] pb-[calc(72px+env(safe-area-inset-bottom))]`}>
-          <div className="min-h-0 w-full overflow-hidden">
+          <div className="relative min-h-0 w-full overflow-hidden">
+            {(showMobileProjects || showMobileSettings) && (
+              <button
+                type="button"
+                onClick={() => useBuilderStore.getState().setMobileTab('chat')}
+                className="absolute right-4 top-[calc(14px+env(safe-area-inset-top))] z-30 rounded-full border border-white/10 bg-white/[0.05] p-2.5 text-white/70"
+                aria-label="Close panel"
+              >
+                <X size={18} />
+              </button>
+            )}
             {showMobileProjects && <ProjectSidebar />}
             {showMobileSettings && <SettingsPanel />}
-            {showMobileSkills && <SkillsAgentsPanel />}
+            {showMobileSkills && <SkillsAgentsPanel onClose={() => useBuilderStore.getState().setMobileTab('chat')} mobile />}
           </div>
         </section>
       </div>
 
+      {activeOverlay === 'skills' && (
+        <div className="fixed inset-0 z-50 hidden bg-black/45 backdrop-blur-sm md:block xl:hidden" onMouseDown={closeOverlay}>
+          <div className="absolute bottom-3 left-3 top-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-white/10 bg-[#08101b] shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <SkillsAgentsPanel onClose={closeOverlay} />
+          </div>
+        </div>
+      )}
       <BuilderOverlayPanel activeOverlay={activeOverlay} onClose={closeOverlay} />
       <MobileTabs />
     </div>
@@ -324,19 +349,14 @@ function DockButton({ icon, label, active, onClick }: { icon: React.ReactNode; l
 }
 
 function BuilderOverlayPanel({ activeOverlay, onClose }: { activeOverlay: BuilderOverlay; onClose: () => void }) {
-  if (!activeOverlay) return null;
+  if (!activeOverlay || activeOverlay === 'skills') return null;
 
-  const title = activeOverlay === 'skills' ? 'Skills' : activeOverlay === 'integrations' ? 'Integrations' : 'Quick Actions';
-  const isDrawer = activeOverlay === 'skills';
+  const title = activeOverlay === 'integrations' ? 'Integrations' : 'Quick Actions';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm" onMouseDown={onClose}>
       <div
-        className={`absolute flex max-h-[calc(100dvh-24px)] overflow-hidden border border-white/10 bg-[#0b0b0b] shadow-2xl ${
-          isDrawer
-            ? 'bottom-3 right-3 top-3 w-[min(390px,calc(100vw-24px))] rounded-2xl'
-            : 'left-1/2 top-1/2 w-[min(720px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl'
-        }`}
+        className="absolute left-1/2 top-1/2 flex max-h-[calc(100dvh-24px)] w-[min(520px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1421] shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex min-h-0 w-full flex-col">
@@ -352,7 +372,6 @@ function BuilderOverlayPanel({ activeOverlay, onClose }: { activeOverlay: Builde
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
-            {activeOverlay === 'skills' && <SkillsAgentsPanel />}
             {activeOverlay === 'integrations' && <IntegrationsPanel />}
             {activeOverlay === 'quickActions' && <QuickActionsPanel onClose={onClose} />}
           </div>
@@ -387,31 +406,35 @@ function QuickActionsPanel({ onClose }: { onClose: () => void }) {
 
 function IntegrationsPanel() {
   return (
-    <div className="space-y-4 p-4">
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-white/70">
-          <Github size={16} className="text-lotus-300/75" />
-          GitHub
-        </div>
-        <GitHubPanel />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <IntegrationStub icon={<Database size={15} />} name="Supabase" text="Connected through app configuration" active />
-        <IntegrationStub icon={<Plug size={15} />} name="Stripe" text="Available when configured" />
+    <div className="p-5">
+      <p className="mb-4 text-sm text-white/42">Connect services to extend your app's capabilities.</p>
+      <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.025]">
+        <IntegrationRow icon={<Github size={22} />} name="GitHub" text="Import & export repositories" state="arrow" />
+        <IntegrationRow icon={<Database size={22} />} name="Supabase" text="Database & Auth" state="check" accent />
+        <IntegrationRow icon={<CreditCard size={22} />} name="Stripe" text="Payments" state="toggle" />
+        <IntegrationRow icon={<Flame size={22} />} name="Firebase" text="Backend & Analytics" state="toggle" />
+        <IntegrationRow icon={<Mail size={22} />} name="SendGrid" text="Email" state="toggle" />
+        <button type="button" className="flex w-full items-center gap-3 px-4 py-4 text-left text-sm text-white/55 transition hover:bg-white/[0.03] hover:text-white/80">
+          <Plus size={16} className="text-white/35" />
+          Add integration
+        </button>
       </div>
     </div>
   );
 }
 
-function IntegrationStub({ icon, name, text, active }: { icon: React.ReactNode; name: string; text: string; active?: boolean }) {
+function IntegrationRow({ icon, name, text, state, accent }: { icon: React.ReactNode; name: string; text: string; state: 'arrow' | 'check' | 'toggle'; accent?: boolean }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-white/65">
-        <span className={active ? 'text-lotus-300/75' : 'text-white/30'}>{icon}</span>
-        {name}
+    <button type="button" className="flex w-full items-center gap-4 border-b border-white/[0.06] px-4 py-3 text-left last:border-b-0 transition hover:bg-white/[0.03]">
+      <span className={accent ? 'text-lotus-300' : 'text-white/70'}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-white/78">{name}</div>
+        <div className="text-xs text-white/38">{text}</div>
       </div>
-      <p className="mt-1 text-xs text-white/30">{text}</p>
-    </div>
+      {state === 'arrow' && <span className="text-lg text-white/35">›</span>}
+      {state === 'check' && <span className="flex h-6 w-6 items-center justify-center rounded-full bg-lotus-400 text-xs font-bold text-[#04110f]">✓</span>}
+      {state === 'toggle' && <span className="flex h-6 w-10 items-center rounded-full bg-white/10 p-1"><span className="h-4 w-4 rounded-full bg-white/65" /></span>}
+    </button>
   );
 }
 
