@@ -10,7 +10,7 @@ import { recordSkillUsage } from '@/lib/supabase/skillsStorage';
 import type { Skill } from '@/lib/skills/skillsData';
 
 export type SidebarView = 'projects' | 'settings';
-export type MobileTab = 'chat' | 'preview' | 'settings' | 'projects' | 'skills';
+export type MobileTab = 'home' | 'projects' | 'builder' | 'preview' | 'menu';
 export type PreviewDevice = 'phone' | 'tablet' | 'desktop';
 export type BuilderOverlay = null | 'projects' | 'settings' | 'skills' | 'integrations' | 'quickActions';
 
@@ -181,8 +181,8 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
-        mobileTab: 'chat',
-        activePanel: 'chat',
+        mobileTab: 'home',
+        activePanel: 'home',
         sidebarView: 'projects',
         isSidebarOpen: true,
         activeOverlay: null,
@@ -220,7 +220,6 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         generationStatus: 'idle',
 
         setMobileTab: (tab) => {
-          if (tab === 'projects' || tab === 'settings') set({ sidebarView: tab === 'projects' ? 'projects' : 'settings' });
           set({ mobileTab: tab, activePanel: tab, activeOverlay: null });
         },
         setSidebarView: (view) => set({ sidebarView: view }),
@@ -236,7 +235,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setPreviewDevice: (device) => set({ previewDevice: device }),
         setShowPreview: (show) => set({ showPreview: show }),
         togglePreview: () => set({ showPreview: !get().showPreview }),
-        setActivePanel: (panel) => set({ activePanel: panel, mobileTab: ['chat', 'preview', 'settings', 'projects', 'skills'].includes(panel) ? panel as MobileTab : get().mobileTab }),
+        setActivePanel: (panel) => set({ activePanel: panel, mobileTab: ['home', 'projects', 'builder', 'preview', 'menu'].includes(panel) ? panel as MobileTab : get().mobileTab }),
         toggleSidebar: () => set({ isSidebarOpen: !get().isSidebarOpen }),
         setCurrentUser: (user) => set({ _currentUser: user }),
         setCurrentProject: (incoming) => {
@@ -485,7 +484,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setExportFormat: (exportFormat) => set({ exportFormat }),
         resetStore: () => {
           const schema = createEmptySchema();
-          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: fallbackProviderId, selectedProvider: fallbackProviderId, activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, activeOverlay: null, isToolsOpen: false, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
+          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null });
         },
       }),
       {
@@ -512,6 +511,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           apiKeys: state.apiKeys,
           theme: state.theme,
           exportFormat: state.exportFormat,
+          mobileTab: state.mobileTab,
         }),
       }
     )
