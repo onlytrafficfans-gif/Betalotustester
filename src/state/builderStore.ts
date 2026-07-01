@@ -12,6 +12,7 @@ import type { Skill } from '@/lib/skills/skillsData';
 export type SidebarView = 'projects' | 'settings';
 export type MobileTab = 'chat' | 'preview' | 'settings' | 'projects' | 'skills';
 export type PreviewDevice = 'phone' | 'tablet' | 'desktop';
+export type BuilderOverlay = null | 'projects' | 'settings' | 'skills' | 'integrations' | 'quickActions';
 
 export interface AIProviderConfig {
   id: string;
@@ -60,6 +61,8 @@ interface BuilderState {
   activePanel: string;
   sidebarView: SidebarView;
   isSidebarOpen: boolean;
+  activeOverlay: BuilderOverlay;
+  isToolsOpen: boolean;
   showSkillsPanel: boolean;
   previewDevice: PreviewDevice;
   showPreview: boolean;
@@ -95,6 +98,9 @@ interface BuilderActions {
   setMobileTab: (tab: MobileTab) => void;
   setSidebarView: (view: SidebarView) => void;
   setSidebarOpen: (open: boolean) => void;
+  setActiveOverlay: (overlay: BuilderOverlay) => void;
+  closeOverlay: () => void;
+  setToolsOpen: (open: boolean) => void;
   setShowSkillsPanel: (show: boolean) => void;
   toggleSkillsPanel: () => void;
   setPreviewDevice: (device: PreviewDevice) => void;
@@ -193,6 +199,8 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         activePanel: 'chat',
         sidebarView: 'projects',
         isSidebarOpen: true,
+        activeOverlay: null,
+        isToolsOpen: false,
         
         showSkillsPanel: false,
         previewDevice: 'phone',
@@ -226,14 +234,19 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         generationStatus: 'idle',
 
         setMobileTab: (tab) => {
-          if (tab === 'projects' || tab === 'settings') set({ sidebarView: tab === 'projects' ? 'projects' : 'settings', isSidebarOpen: true });
-          if (tab === 'skills') set({ showSkillsPanel: true });
-          set({ mobileTab: tab, activePanel: tab });
+          if (tab === 'projects' || tab === 'settings') set({ sidebarView: tab === 'projects' ? 'projects' : 'settings' });
+          set({ mobileTab: tab, activePanel: tab, activeOverlay: null });
         },
         setSidebarView: (view) => set({ sidebarView: view }),
         setSidebarOpen: (open) => set({ isSidebarOpen: open }),
-        setShowSkillsPanel: (show) => set({ showSkillsPanel: show }),
-        toggleSkillsPanel: () => set({ showSkillsPanel: !get().showSkillsPanel }),
+        setActiveOverlay: (activeOverlay) => set({ activeOverlay, showSkillsPanel: activeOverlay === 'skills' }),
+        closeOverlay: () => set({ activeOverlay: null, showSkillsPanel: false, isToolsOpen: false }),
+        setToolsOpen: (isToolsOpen) => set({ isToolsOpen }),
+        setShowSkillsPanel: (show) => set({ showSkillsPanel: show, activeOverlay: show ? 'skills' : null }),
+        toggleSkillsPanel: () => {
+          const next = !get().showSkillsPanel;
+          set({ showSkillsPanel: next, activeOverlay: next ? 'skills' : null });
+        },
         setPreviewDevice: (device) => set({ previewDevice: device }),
         setShowPreview: (show) => set({ showPreview: show }),
         togglePreview: () => set({ showPreview: !get().showPreview }),
@@ -484,7 +497,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setExportFormat: (exportFormat) => set({ exportFormat }),
         resetStore: () => {
           const schema = createEmptySchema();
-          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
+          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, activeOverlay: null, isToolsOpen: false, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
         },
       }),
       {
