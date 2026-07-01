@@ -3,9 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { BuilderLayout } from '@/components/builder/BuilderLayout';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { Toaster } from '@/components/ui/sonner';
-import { getCurrentUser, onAuthStateChange, signOut } from '@/lib/supabase/auth';
+import { getCurrentUser, onAuthStateChange } from '@/lib/supabase/auth';
 import type { AuthUser } from '@/lib/supabase/auth';
-import { LogOut, User } from 'lucide-react';
 // Builder layout handles project loading internally
 
 function App() {
@@ -33,11 +32,6 @@ function App() {
     setUser(u);
   }, []);
 
-  const handleSignOut = useCallback(async () => {
-    await signOut();
-    setUser(null);
-  }, []);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#050505]">
@@ -62,28 +56,7 @@ function App() {
 
   return (
     <>
-      {/* User bar */}
-      <div className="fixed top-0 left-0 right-0 z-[60] h-[calc(1.75rem+env(safe-area-inset-top))] bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between px-3 pt-[env(safe-area-inset-top)]">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-white/20 font-mono">LOTUS</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {user.avatar ? (
-            <img src={user.avatar} alt="" className="w-4 h-4 rounded-full" />
-          ) : (
-            <User size={10} className="text-white/30" />
-          )}
-          <span className="text-[10px] text-white/40 truncate max-w-[120px]">{user.name || user.email}</span>
-          <button
-            onClick={handleSignOut}
-            className="p-1 rounded hover:bg-white/5 text-white/20 hover:text-white/40 transition-all"
-            title="Sign out"
-          >
-            <LogOut size={10} />
-          </button>
-        </div>
-      </div>
-      <div className="h-screen pt-[calc(1.75rem+env(safe-area-inset-top))] overflow-hidden">
+      <div className="h-screen overflow-hidden">
         <BuilderLayout user={user} />
       </div>
       <Toaster
