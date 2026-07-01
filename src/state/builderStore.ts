@@ -174,21 +174,6 @@ function extractSchema(content: string, fallbackName: string): AppSchema {
   return mergeSchemaUpdates(createEmptySchema(fallbackName), patch);
 }
 
-function mockAssistantResponse(prompt: string): string {
-  const lower = prompt.toLowerCase();
-  const name = lower.includes('store') || lower.includes('shop') ? 'ShopEase' : lower.includes('fitness') ? 'FitPulse' : 'Mock Built App';
-  const schema = createEmptySchema(name);
-  schema.screens[0] = {
-    ...schema.screens[0],
-    components: [
-      { id: 'hero', type: 'text', props: {}, variant: 'title', content: name },
-      { id: 'body', type: 'text', props: {}, variant: 'body', content: 'Generated with the safe demo mock provider.' },
-      { id: 'action', type: 'button', props: {}, text: 'Open App', variant: 'primary' },
-    ],
-  };
-  return `Generated a safe demo preview.\n\n\`\`\`json\n${JSON.stringify(schema, null, 2)}\n\`\`\``;
-}
-
 const initialSchema = createEmptySchema();
 const fallbackProviderId = SERVER_DEMO_PROVIDER_ID;
 
@@ -370,23 +355,20 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           try {
             const provider = get().providers.find((p) => p.id === get().providerId) ?? defaultRegistry[0];
             let fullContent = '';
-            if (provider.id === 'mock' || !provider.apiEndpoint) {
-              fullContent = mockAssistantResponse(content);
+            if (provider.id === 'mock') {
+              throw new Error('Demo Mock is disabled for this deployment. Configure a shared AI provider key.');
+            } else if (!provider.apiEndpoint) {
+              throw new Error(`Provider ${provider.name} is missing an API endpoint.`);
             } else {
-              try {
-                const proxyResponse = await proxyAIRequest({
-                  provider: provider.id,
-                  model: provider.model,
-                  messages: [
-                    { role: 'system', content: providerRegistry.getSystemPrompt() },
-                    { role: 'user', content },
-                  ],
-                });
-                fullContent = proxyResponse.content;
-              } catch (error) {
-                console.error('[LOTUS] Server AI provider failed, using Demo Mock fallback:', error);
-                fullContent = mockAssistantResponse(content);
-              }
+              const proxyResponse = await proxyAIRequest({
+                provider: provider.id,
+                model: provider.model,
+                messages: [
+                  { role: 'system', content: providerRegistry.getSystemPrompt() },
+                  { role: 'user', content },
+                ],
+              });
+              fullContent = proxyResponse.content;
             }
             const updatedSchema = extractSchema(fullContent, get().schema.name);
             const changesSummary = `${updatedSchema.screens.length} screen${updatedSchema.screens.length === 1 ? '' : 's'} updated`;
@@ -403,7 +385,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
             set((state) => ({
-              messages: state.messages.map((m) => m.id === assistantId ? { ...m, content: 'Generation failed. Check provider settings or switch to Demo Mock.', isStreaming: false, error: message } : m),
+              messages: state.messages.map((m) => m.id === assistantId ? { ...m, content: 'Generation failed. Check the shared AI provider configuration in Supabase Edge Function secrets.', isStreaming: false, error: message } : m),
               isLoading: false,
               generationStatus: 'error',
               error: message,

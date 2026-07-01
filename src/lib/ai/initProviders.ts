@@ -42,13 +42,6 @@ export const defaultRegistry: AIProviderConfig[] = [
     apiKey: 'server-managed',
     apiEndpoint: 'supabase-edge',
   },
-  {
-    id: 'mock',
-    name: 'Demo Mock',
-    model: 'mock-dev',
-    apiKey: 'mock',
-    apiEndpoint: '',
-  },
 ];
 
 export const providerRegistry = {

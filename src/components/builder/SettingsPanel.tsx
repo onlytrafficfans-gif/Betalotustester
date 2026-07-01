@@ -142,7 +142,7 @@ export function SettingsPanel() {
       const updated = await loadStoredProviders(userId);
       setActiveProviders(updated);
       const hasActive = updated.find(p => p.id === provider.id && p.apiKey.length > 10);
-      if (hasActive && providerId === 'mock') switchProvider(provider.id);
+      if (hasActive && providerId === 'openrouter_demo') switchProvider(provider.id);
     } catch (error) {
       console.error('[LOTUS] Failed to save AI provider:', error);
     }
@@ -156,7 +156,7 @@ export function SettingsPanel() {
       setActiveProviders(updated);
       if (providerId === id) {
         const remaining = updated.filter(p => p.apiKey.length > 10);
-        switchProvider(remaining[0]?.id || 'mock');
+        switchProvider(remaining[0]?.id || 'openrouter_demo');
       }
     } catch (error) {
       console.error('[LOTUS] Failed to remove AI provider:', error);
@@ -169,7 +169,7 @@ export function SettingsPanel() {
       await addProvider(userId, provider);
       await addApiProvider(userId, provider);
       setActiveProviders(await loadStoredProviders(userId));
-      if (providerId === 'mock') switchProvider(provider.id);
+      if (providerId === 'openrouter_demo') switchProvider(provider.id);
     } catch (error) {
       console.error('[LOTUS] Failed to add custom provider:', error);
     }
@@ -226,7 +226,7 @@ export function SettingsPanel() {
         </section>
         <section className="space-y-3">
           <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider flex items-center gap-1.5"><Key size={10} />AI Providers</h3>
-          <p className="text-[10px] text-white/20 leading-relaxed">Add API keys for OpenAI-compatible providers such as Groq or OpenRouter. This demo stores keys client-side/account-side for convenience; use a server proxy before production.</p>
+          <p className="text-[10px] text-white/20 leading-relaxed">Shared AI providers are managed server-side through the Supabase Edge Function. Add personal API keys here only for account-specific testing.</p>
           {PRESET_PROVIDERS.map((preset) => <KeyField key={preset.id} config={{ ...preset, apiKey: '' }} storedProvider={activeProviders.find(p => p.id === preset.id)} onSave={handleSaveProvider} onDelete={handleDeleteProvider} />)}
           <CustomProviderForm onAdd={handleAddCustom} />
         </section>

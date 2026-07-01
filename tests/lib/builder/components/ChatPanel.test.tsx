@@ -35,8 +35,8 @@ function makeStoreState(overrides: Record<string, unknown> = {}) {
     lastFailedPrompt: null,
     retryLastMessage: mockRetryLastMessage,
     sendMessage: mockSendMessage,
-    providers: [{ id: 'mock', name: 'Demo Mock', model: 'mock', apiKey: '', apiEndpoint: '' }],
-    providerId: 'mock',
+    providers: [{ id: 'openrouter_demo', name: 'Shared OpenRouter', model: 'openai/gpt-oss-20b:free', apiKey: '', apiEndpoint: '/functions/v1/ai-proxy' }],
+    providerId: 'openrouter_demo',
     switchProvider: mockSwitchProvider,
     ...overrides,
   };
@@ -88,7 +88,7 @@ describe('ChatPanel', () => {
         {
           id: '2',
           role: 'assistant',
-          content: 'Generation failed. Check provider settings or switch to Demo Mock.',
+          content: 'Generation failed. Check the shared AI provider configuration in Supabase Edge Function secrets.',
           timestamp: 2000,
           error: 'API connection failed',
         },

@@ -44,15 +44,10 @@ supabase secrets set DEEPSEEK_API_KEY=your_deepseek_key
 supabase secrets set GEMINI_API_KEY=your_gemini_key
 ```
 
-### Option 2: Mock Mode -- no API key needed
-```bash
-# Demo Mock remains available as a safe fallback.
-```
-
-### Option 3: Per-account Groq or OpenRouter
+### Option 2: Per-account Groq or OpenRouter
 Open Settings inside the builder, paste a Groq or OpenRouter key, choose the model, and select that provider under Active Provider. These endpoints use OpenAI-compatible chat completions.
 
-### Option 4: Custom OpenAI-Compatible Provider
+### Option 3: Custom OpenAI-Compatible Provider
 Use Settings -> Add Custom Provider with a chat completions endpoint, model name, and API key.
 
 ## API Key Safety
@@ -87,7 +82,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ```
 User Chat Prompt
-  -> AI Provider (Mock / Groq / OpenRouter / OpenAI-compatible)
+  -> AI Provider (Shared OpenRouter / Groq / OpenAI / Gemini / OpenAI-compatible)
   -> Structured JSON Response (schema patches)
   -> Validation Layer
   -> Schema Diffing (apply patches incrementally)
@@ -136,7 +131,7 @@ src/
     ui/            # 53 shadcn/ui components
   hooks/           # usePWA, useTheme, use-mobile
   lib/
-    ai/            # AI providers (OpenAI, Groq, Mock)
+    ai/            # AI providers and Supabase Edge Function proxy client
     builder/       # App schema, renderer, export generators
     github/        # GitHub API client and storage
     skills/        # Pre-installed skills library
