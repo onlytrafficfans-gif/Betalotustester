@@ -22,6 +22,27 @@ export const defaultRegistry: AIProviderConfig[] = [
     apiEndpoint: 'supabase-edge',
   },
   {
+    id: 'groq_demo',
+    name: 'LOTUS Groq',
+    model: 'llama-3.3-70b-versatile',
+    apiKey: 'server-managed',
+    apiEndpoint: 'supabase-edge',
+  },
+  {
+    id: 'openai_demo',
+    name: 'LOTUS OpenAI',
+    model: 'gpt-4o-mini',
+    apiKey: 'server-managed',
+    apiEndpoint: 'supabase-edge',
+  },
+  {
+    id: 'gemini_demo',
+    name: 'LOTUS Gemini',
+    model: 'gemini-2.0-flash',
+    apiKey: 'server-managed',
+    apiEndpoint: 'supabase-edge',
+  },
+  {
     id: 'mock',
     name: 'Demo Mock',
     model: 'mock-dev',

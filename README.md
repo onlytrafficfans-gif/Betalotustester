@@ -41,6 +41,7 @@ Optional shared secrets supported by `supabase/functions/ai-proxy/index.ts`:
 supabase secrets set GROQ_API_KEY=your_groq_key
 supabase secrets set OPENAI_API_KEY=your_openai_key
 supabase secrets set DEEPSEEK_API_KEY=your_deepseek_key
+supabase secrets set GEMINI_API_KEY=your_gemini_key
 ```
 
 ### Option 2: Mock Mode -- no API key needed

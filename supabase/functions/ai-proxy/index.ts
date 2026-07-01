@@ -43,10 +43,30 @@ const SHARED_PROVIDERS: Record<string, { keyEnv: string; baseUrl: string; model:
     baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'llama-3.3-70b-versatile',
   },
+  groq_demo: {
+    keyEnv: 'GROQ_API_KEY',
+    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.3-70b-versatile',
+  },
   openai: {
     keyEnv: 'OPENAI_API_KEY',
     baseUrl: 'https://api.openai.com/v1/chat/completions',
     model: 'gpt-4o-mini',
+  },
+  openai_demo: {
+    keyEnv: 'OPENAI_API_KEY',
+    baseUrl: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-4o-mini',
+  },
+  gemini: {
+    keyEnv: 'GEMINI_API_KEY',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: 'gemini-2.0-flash',
+  },
+  gemini_demo: {
+    keyEnv: 'GEMINI_API_KEY',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: 'gemini-2.0-flash',
   },
   deepseek: {
     keyEnv: 'DEEPSEEK_API_KEY',
