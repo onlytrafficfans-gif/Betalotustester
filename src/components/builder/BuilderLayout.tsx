@@ -6,6 +6,10 @@
 import { useEffect, useCallback } from 'react';
 import {
   Bot,
+  Bell,
+  ChevronDown,
+  CircleHelp,
+  Copy,
   Database,
   FolderOpen,
   Github,
@@ -13,9 +17,11 @@ import {
   Lock,
   MessageSquare,
   Palette,
+  Plus,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
+  RotateCcw,
   Search,
   Settings,
   Smartphone,
@@ -23,6 +29,7 @@ import {
   Type,
   UserCircle,
   X,
+  Zap,
 } from 'lucide-react';
 import { useBuilderStore } from '@/state/builderStore';
 import type { AuthUser } from '@/lib/supabase/auth';
@@ -117,58 +124,60 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
   const showMobileSkills = mobileTab === 'skills';
 
   return (
-    <div className="h-full max-w-full overflow-hidden bg-[#050505] text-white">
+    <div className="h-full max-w-full overflow-hidden bg-[#05070d] text-white">
       <PWAInstallPrompt />
       <FirstLoginHints userId={user.id} />
 
-      <div className="hidden h-full min-w-0 md:flex">
-        <DesktopDock
-          sidebarView={sidebarView}
-          isOpen={isSidebarOpen}
-          activeOverlay={activeOverlay}
-          onOpenDock={openDock}
-          onOpenOverlay={openOverlay}
-          onToggleDock={() => setSidebarOpen(!isSidebarOpen)}
-        />
+      <div className="hidden h-full min-w-0 flex-col md:flex">
+        <DesktopTopBar user={user} onOpenOverlay={openOverlay} />
 
-        <aside
-          className={`h-full shrink-0 overflow-hidden border-r border-white/[0.05] bg-[#080808] transition-[width,opacity] duration-200 ${
-            isSidebarOpen ? 'w-[260px] opacity-100' : 'w-0 opacity-0'
-          }`}
-        >
-          <div className="relative h-full min-w-[260px]">
+        <div className="flex min-h-0 flex-1 gap-2 p-2">
+          {isSidebarOpen ? (
+            <aside className="h-full w-[250px] shrink-0 overflow-hidden rounded-md border border-white/[0.08] bg-[#09111d] shadow-[0_0_0_1px_rgba(0,0,0,0.3)]">
+              <div className="relative h-full">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="absolute right-3 top-3 z-20 rounded-lg p-1.5 text-white/35 transition hover:bg-white/5 hover:text-white/75"
+                  aria-label="Close workspace"
+                >
+                  <X size={15} />
+                </button>
+                {sidebarView === 'projects' ? <ProjectSidebar /> : <SettingsPanel />}
+              </div>
+            </aside>
+          ) : (
+            <DesktopDock
+              sidebarView={sidebarView}
+              isOpen={isSidebarOpen}
+              activeOverlay={activeOverlay}
+              onOpenDock={openDock}
+              onOpenOverlay={openOverlay}
+              onToggleDock={() => setSidebarOpen(true)}
+            />
+          )}
+
+          <main className="min-w-[380px] flex-1 overflow-hidden rounded-md border border-white/[0.08] bg-[#08101b]">
+            <ErrorBoundary>
+              <ChatPanel />
+            </ErrorBoundary>
+          </main>
+
+          {showPreview ? (
+            <section className="h-full min-w-[350px] max-w-[520px] resize-x overflow-auto rounded-md border border-white/[0.08] bg-[#08101b] lg:w-[360px] xl:w-[420px]">
+              <LivePreview schema={schema} onSchemaChange={handleSchemaChange} />
+            </section>
+          ) : (
             <button
               type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="absolute right-3 top-3 z-20 rounded-lg border border-white/5 bg-black/30 p-1.5 text-white/35 transition hover:bg-white/5 hover:text-white/75"
-              aria-label="Close left panel"
+              onClick={() => setShowPreview(true)}
+              className="flex h-full w-11 shrink-0 items-center justify-center rounded-md border border-white/[0.08] bg-[#08101b] text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35 transition hover:bg-white/[0.03] hover:text-lotus-300"
+              aria-label="Open preview"
             >
-              <PanelLeftClose size={15} />
+              <span className="-rotate-90 whitespace-nowrap">Preview</span>
             </button>
-            {sidebarView === 'projects' ? <ProjectSidebar /> : <SettingsPanel />}
-          </div>
-        </aside>
-
-        <main className="flex min-w-[360px] flex-1 flex-col border-r border-white/[0.04]">
-          <ErrorBoundary>
-            <ChatPanel />
-          </ErrorBoundary>
-        </main>
-
-        {showPreview ? (
-          <section className="h-full min-w-[360px] max-w-[720px] resize-x overflow-auto bg-[#080808] lg:w-[470px] xl:w-[520px]">
-            <LivePreview schema={schema} onSchemaChange={handleSchemaChange} />
-          </section>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowPreview(true)}
-            className="flex h-full w-12 shrink-0 items-center justify-center border-l border-white/[0.05] bg-[#080808] text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35 transition hover:bg-white/[0.03] hover:text-lotus-300"
-            aria-label="Open preview"
-          >
-            <span className="-rotate-90 whitespace-nowrap">Preview</span>
-          </button>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex h-full min-w-0 flex-1 flex-col md:hidden">
@@ -199,6 +208,69 @@ export function BuilderLayout({ user }: BuilderLayoutProps) {
   );
 }
 
+function DesktopTopBar({
+  user,
+  onOpenOverlay,
+}: {
+  user: AuthUser;
+  onOpenOverlay: (overlay: Exclude<BuilderOverlay, null>) => void;
+}) {
+  return (
+    <header className="flex h-[58px] shrink-0 items-center border-b border-white/[0.07] bg-[#090d16] px-5">
+      <div className="flex min-w-[360px] items-center gap-3">
+        <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-lotus-400/10">
+          <span className="text-[10px] font-bold text-lotus-300">L</span>
+          <img src="/logo-lotus.png" alt="LOTUS" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+        <div className="flex items-baseline gap-5">
+          <span className="text-lg font-semibold tracking-wide text-white/90">LOTUS</span>
+          <span className="text-sm text-white/45">App Builder</span>
+        </div>
+      </div>
+
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex rounded-xl border border-white/[0.07] bg-white/[0.025] p-1">
+          <button type="button" className="rounded-lg bg-lotus-400/10 px-4 py-2 text-xs font-semibold text-lotus-300">Preview</button>
+          <button type="button" className="rounded-lg px-4 py-2 text-xs font-semibold text-white/40 transition hover:text-white/70">Code</button>
+        </div>
+        <button type="button" className="ml-3 flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-xs text-white/55 transition hover:text-white/80">
+          V23 <ChevronDown size={13} />
+        </button>
+      </div>
+
+      <div className="flex min-w-[360px] items-center justify-end gap-1.5">
+        <button type="button" onClick={() => onOpenOverlay('quickActions')} className="flex items-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-2 text-xs font-semibold text-white/65 transition hover:text-lotus-300">
+          <Zap size={14} /> Update
+        </button>
+        <TopIconButton label="New" icon={<Plus size={16} />} />
+        <TopIconButton label="Copy" icon={<Copy size={16} />} />
+        <div className="mx-2 h-6 w-px bg-white/[0.07]" />
+        <TopIconButton label="Undo" icon={<RotateCcw size={16} />} />
+        <TopIconButton label="Help" icon={<CircleHelp size={16} />} />
+        <TopIconButton label="Alerts" icon={<Bell size={16} />} />
+        <button type="button" className="ml-2 flex items-center gap-2 rounded-xl px-2 py-1.5 text-sm text-white/65 transition hover:bg-white/[0.04]">
+          <UserCircle size={18} />
+          <span className="max-w-[110px] truncate">{user.name || user.email?.split('@')[0] || 'Builder'}</span>
+          <ChevronDown size={13} />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function TopIconButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      className="rounded-xl p-2 text-white/35 transition hover:bg-white/[0.04] hover:text-white/75"
+      aria-label={label}
+    >
+      {icon}
+    </button>
+  );
+}
+
 function DesktopDock({
   sidebarView,
   isOpen,
@@ -215,7 +287,7 @@ function DesktopDock({
   onToggleDock: () => void;
 }) {
   return (
-    <nav className="flex h-full w-[58px] shrink-0 flex-col items-center gap-2 border-r border-white/[0.05] bg-[#060606] px-2 py-3">
+    <nav className="flex h-full w-[58px] shrink-0 flex-col items-center gap-2 rounded-md border border-white/[0.08] bg-[#09111d] px-2 py-3">
       <button
         type="button"
         onClick={onToggleDock}

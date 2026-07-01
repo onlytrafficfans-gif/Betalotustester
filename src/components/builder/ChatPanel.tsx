@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useBuilderStore } from '@/state/builderStore';
 import { ChatInput } from './ChatInput';
 import { ToolsBar } from './ToolsBar';
-import { User, Loader2, AlertCircle, Plus, Sparkles, Zap, CheckCircle2, X, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { User, Loader2, AlertCircle, Sparkles, Zap, CheckCircle2, X, ChevronDown, ChevronUp, RotateCcw, MessageSquare, Activity, Palette, ArrowRight } from 'lucide-react';
 
 const REAL_PROMPTS = [
   { label: 'Fitness Tracker', text: 'Build me a fitness tracking app with a dark dashboard showing weekly workout stats, a workout timer screen, progress charts, and a profile screen. Use green (#22c55e) as the primary color with black (#0a0a0a) backgrounds. Add bottom navigation with Home, Workouts, Profile tabs. Include realistic sample data.' },
@@ -30,25 +30,17 @@ export function ChatPanel() {
   const handleDismissError = () => { setShowError(false); clearError(); };
 
   return (
-    <div className="flex flex-col h-full min-w-0 overflow-x-hidden bg-[#050505]">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-[#08101b]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
-            <LotusLogo className="w-8 h-8 rounded-lg" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-white/90 truncate">{project?.name || 'LOTUS Agent'}</h2>
-            <div className="flex items-center gap-1.5">
-              <span className="flex items-center gap-1 text-[10px] text-white/30">
-                <Zap size={10} className="text-lotus-400" />AI-Powered Builder
-              </span>
-            </div>
-          </div>
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-white/64">Chat Builder</h2>
+          <p className="truncate text-[10px] text-white/25">{project?.name || 'LOTUS Agent'}</p>
         </div>
-        <button onClick={() => createNewProject()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-lotus-400/10 text-lotus-400 hover:bg-lotus-400/20 transition-all shrink-0">
-          <Plus size={14} /><span className="hidden sm:inline">New</span>
-        </button>
+        <button onClick={() => createNewProject()} className="sr-only">New</button>
+        <span className="rounded-lg p-1.5 text-white/35" aria-hidden="true" title="Chat panel">
+          <X size={15} />
+        </span>
       </div>
 
       {/* Messages */}
@@ -80,18 +72,19 @@ export function ChatPanel() {
         )}
 
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-14 h-14 rounded-2xl bg-lotus-400/5 border border-lotus-400/10 flex items-center justify-center mb-4">
-              <Sparkles size={24} className="text-lotus-400/60" />
+          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+            <div className="mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-full border border-lotus-400/15 bg-lotus-400/[0.07] shadow-[0_0_50px_rgba(20,184,166,0.12)]">
+              <Sparkles size={34} className="text-lotus-300/80" />
             </div>
-            <h3 className="text-sm font-semibold text-white/80 mb-1">What will you build?</h3>
-            <p className="text-xs text-white/30 max-w-sm leading-relaxed mb-4">
-              Describe your app and the AI will build it. Pick a template below or write your own.
+            <span className="sr-only">LOTUS Agent</span>
+            <h3 className="mb-2 text-2xl font-semibold text-white/90">Agent \ Skills</h3>
+            <p className="mb-10 max-w-md text-sm leading-relaxed text-white/48">
+              Describe what you want to build - apps, agents, or full products.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-md">
-              {REAL_PROMPTS.map((p, i) => (
-                <SuggestionButton key={i} text={p.text} label={p.label} />
-              ))}
+            <div className="grid w-full max-w-[460px] grid-cols-1 gap-3">
+              <ReferencePrompt icon={<MessageSquare size={20} />} label="Build me an agent with a chat interface" text={REAL_PROMPTS[0].text} />
+              <ReferencePrompt icon={<Activity size={20} />} label="Build me a fitness app with a dashboard" text={REAL_PROMPTS[0].text} />
+              <ReferencePrompt icon={<Palette size={20} />} label="Make it black and green with bottom navigation" text="Make this app black and green with bottom navigation, polished cards, clear active states, and a premium mobile-first interface." />
             </div>
           </div>
         )}
@@ -170,12 +163,17 @@ function LotusLogo({ className }: { className: string }) {
   );
 }
 
-function SuggestionButton({ text, label }: { text: string; label: string }) {
+function ReferencePrompt({ icon, label, text }: { icon: React.ReactNode; label: string; text: string }) {
   const { sendMessage } = useBuilderStore();
   return (
-    <button onClick={() => sendMessage(text)} className="text-left px-3 py-2.5 rounded-xl text-xs text-white/40 bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:text-white/70 hover:border-lotus-400/20 transition-all">
-      <span className="font-medium text-white/60">{label}</span>
-      <span className="block text-[10px] text-white/25 mt-0.5 truncate">{text.slice(0, 60)}...</span>
+    <button
+      type="button"
+      onClick={() => sendMessage(text)}
+      className="group flex h-[62px] items-center gap-4 rounded-xl border border-white/[0.08] bg-white/[0.04] px-5 text-left text-sm text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:border-lotus-400/25 hover:bg-lotus-400/[0.06] hover:text-white"
+    >
+      <span className="text-lotus-300/80">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <ArrowRight size={16} className="text-white/35 transition group-hover:translate-x-0.5 group-hover:text-lotus-300" />
     </button>
   );
 }
