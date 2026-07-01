@@ -11,7 +11,16 @@ export async function initProviders(userId?: string): Promise<void> {
   localStorage.setItem('lotus_provider_count', String(stored.length));
 }
 
+export const SERVER_DEMO_PROVIDER_ID = 'openrouter_demo';
+
 export const defaultRegistry: AIProviderConfig[] = [
+  {
+    id: SERVER_DEMO_PROVIDER_ID,
+    name: 'LOTUS Demo AI',
+    model: 'google/gemini-2.0-flash-exp:free',
+    apiKey: 'server-managed',
+    apiEndpoint: 'supabase-edge',
+  },
   {
     id: 'mock',
     name: 'Demo Mock',

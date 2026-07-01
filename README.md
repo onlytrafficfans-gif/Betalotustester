@@ -20,25 +20,50 @@ npm run test:run   # Run test suite
 
 ## AI Provider Setup
 
-### Option 1: Mock Mode (default -- no API key needed)
+### Option 1: Shared Demo AI Key
+All accounts can use the built-in `LOTUS Demo AI` provider when the Supabase Edge Function secret is configured. This keeps the real key out of GitHub and out of browser JavaScript.
+
+Deploy the Edge Function:
+
 ```bash
-# Works out of the box. Limited to demo responses.
+supabase functions deploy ai-proxy
 ```
 
-### Option 2: Groq or OpenRouter
+Set at least one shared provider secret in the same Supabase project used by `VITE_SUPABASE_URL`:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=your_openrouter_key
+```
+
+Optional shared secrets supported by `supabase/functions/ai-proxy/index.ts`:
+
+```bash
+supabase secrets set GROQ_API_KEY=your_groq_key
+supabase secrets set OPENAI_API_KEY=your_openai_key
+supabase secrets set DEEPSEEK_API_KEY=your_deepseek_key
+```
+
+### Option 2: Mock Mode -- no API key needed
+```bash
+# Demo Mock remains available as a safe fallback.
+```
+
+### Option 3: Per-account Groq or OpenRouter
 Open Settings inside the builder, paste a Groq or OpenRouter key, choose the model, and select that provider under Active Provider. These endpoints use OpenAI-compatible chat completions.
 
-### Option 3: Custom OpenAI-Compatible Provider
+### Option 4: Custom OpenAI-Compatible Provider
 Use Settings -> Add Custom Provider with a chat completions endpoint, model name, and API key.
 
 ## API Key Safety
+
+The shared demo provider key is stored as a Supabase Edge Function secret and is not committed to the repo.
 
 Provider keys entered in Settings are demo keys stored client-side/account-side for convenience. They may be visible in browser state or Supabase records depending on deployment configuration. This is acceptable for:
 - Local development
 - Private demos
 - Prototyping
 
-**For production deployments, AI requests must go through a backend proxy.** See `src/lib/ai/backendProxy.ts` for the recommended structure. Never expose real API keys in client-side code that ships to users.
+**For production deployments, AI requests must go through a backend proxy.** This repo includes `supabase/functions/ai-proxy/index.ts` and the frontend proxy caller in `src/lib/ai/backendProxy.ts`. Never expose real API keys in client-side code that ships to users.
 
 ## Supabase Database Setup
 
@@ -94,7 +119,7 @@ User Chat Prompt
 | Connector | Beta |
 | View App | Coming Soon |
 | Deploy | Coming Soon |
-| Backend Proxy | Structure only -- implement per-deployment |
+| Backend Proxy | Complete via Supabase Edge Function |
 
 ## Tech Stack
 
@@ -172,8 +197,13 @@ Set these in your Vercel project settings:
 ```
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_GROQ_API_KEY=your-groq-key (optional)
-VITE_OPENAI_API_KEY=your-openai-key (optional)
+```
+
+Set shared AI keys as Supabase Edge Function secrets, not Vercel `VITE_` variables:
+
+```bash
+supabase secrets set OPENROUTER_API_KEY=your_openrouter_key
+supabase functions deploy ai-proxy
 ```
 
 See `SECURITY.md` for complete configuration guidelines.

@@ -137,6 +137,7 @@ describe("Builder Store - Messages", () => {
 
   it("mock provider updates the preview schema", async () => {
     const store = useBuilderStore.getState();
+    store.switchProvider("mock");
     await store.sendMessage("Build a fitness app");
 
     const state = useBuilderStore.getState();
@@ -186,9 +187,10 @@ describe("Builder Store - Provider State", () => {
     useBuilderStore.getState().resetStore();
   });
 
-  it("has default provider as mock", () => {
+  it("has shared demo provider by default with mock fallback available", () => {
     const state = useBuilderStore.getState();
-    expect(state.selectedProvider).toBe("mock");
+    expect(state.selectedProvider).toBe("openrouter_demo");
+    expect(state.providers.some((provider) => provider.id === "mock")).toBe(true);
   });
 
   it("can change provider", () => {

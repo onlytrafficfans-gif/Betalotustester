@@ -8,6 +8,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useUserId } from './BuilderLayout';
 import { PRESET_PROVIDERS, loadStoredProviders, removeProvider, maskKey, addProvider } from '@/lib/ai/apiKeyStorage';
 import type { StoredProvider } from '@/lib/ai/apiKeyStorage';
+import { defaultRegistry } from '@/lib/ai/initProviders';
 
 function KeyField({ config, storedProvider, onSave, onDelete }: {
   config: StoredProvider; storedProvider: StoredProvider | undefined; onSave: (p: StoredProvider) => void; onDelete: (id: string) => void;
@@ -232,7 +233,7 @@ export function SettingsPanel() {
         <section className="space-y-2">
           <h3 className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Active Provider</h3>
           <div className="flex flex-wrap gap-1.5">
-            {[{ id: 'mock', name: 'Demo (no key)' }, ...activeProviders.filter(p => p.apiKey.length > 10).map(p => ({ id: p.id, name: p.name }))].map(p => (
+            {[...defaultRegistry.map(p => ({ id: p.id, name: p.name })), ...activeProviders.filter(p => p.apiKey.length > 10).map(p => ({ id: p.id, name: p.name }))].map(p => (
               <button key={p.id} onClick={() => switchProvider(p.id)} className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all ${providerId === p.id ? 'bg-lotus-400/10 text-lotus-400 border border-lotus-400/20' : 'bg-white/5 text-white/40 border border-white/5 hover:bg-white/10'}`}>{p.name}</button>
             ))}
           </div>

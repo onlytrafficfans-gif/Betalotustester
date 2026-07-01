@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type { AppSchema } from '@/lib/builder/appSchema';
 import { createEmptySchema, mergeSchemaUpdates } from '@/lib/builder/appSchema';
-import { defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
+import { SERVER_DEMO_PROVIDER_ID, defaultRegistry, providerRegistry } from '@/lib/ai/initProviders';
 import { loadStoredProviders } from '@/lib/ai/apiKeyStorage';
 import { proxyAIRequest } from '@/lib/ai/backendProxy';
 import { loadUserProjects, saveProject, deleteProject as deleteStoredProject } from '@/lib/supabase/projectStorage';
@@ -190,6 +190,7 @@ function mockAssistantResponse(prompt: string): string {
 }
 
 const initialSchema = createEmptySchema();
+const fallbackProviderId = SERVER_DEMO_PROVIDER_ID;
 
 const useBuilderStore = create<BuilderState & BuilderActions>()(
   subscribeWithSelector(
@@ -223,8 +224,8 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         isProjectsLoading: false,
         _currentUser: null,
         providers: defaultRegistry,
-        providerId: 'mock',
-        selectedProvider: 'mock',
+        providerId: fallbackProviderId,
+        selectedProvider: fallbackProviderId,
         apiKeys: {},
         theme: 'dark',
         exportFormat: 'pwa',
@@ -372,15 +373,20 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
             if (provider.id === 'mock' || !provider.apiEndpoint) {
               fullContent = mockAssistantResponse(content);
             } else {
-              const proxyResponse = await proxyAIRequest({
-                provider: provider.id,
-                model: provider.model,
-                messages: [
-                  { role: 'system', content: providerRegistry.getSystemPrompt() },
-                  { role: 'user', content },
-                ],
-              });
-              fullContent = proxyResponse.content;
+              try {
+                const proxyResponse = await proxyAIRequest({
+                  provider: provider.id,
+                  model: provider.model,
+                  messages: [
+                    { role: 'system', content: providerRegistry.getSystemPrompt() },
+                    { role: 'user', content },
+                  ],
+                });
+                fullContent = proxyResponse.content;
+              } catch (error) {
+                console.error('[LOTUS] Server AI provider failed, using Demo Mock fallback:', error);
+                fullContent = mockAssistantResponse(content);
+              }
             }
             const updatedSchema = extractSchema(fullContent, get().schema.name);
             const changesSummary = `${updatedSchema.screens.length} screen${updatedSchema.screens.length === 1 ? '' : 's'} updated`;
@@ -442,7 +448,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         addApiProvider: async (_userId, provider) => get().addProvider({ id: provider.id, name: provider.name, apiKey: provider.apiKey, model: provider.model, apiEndpoint: provider.baseUrl }),
         removeProvider: (id) => {
           const providers = get().providers.filter((p) => p.id !== id);
-          set({ providers, providerId: providers[0]?.id ?? 'mock', selectedProvider: providers[0]?.id ?? 'mock' });
+          set({ providers, providerId: providers[0]?.id ?? fallbackProviderId, selectedProvider: providers[0]?.id ?? fallbackProviderId });
         },
         setProviderId: (id) => set({ providerId: id, selectedProvider: id }),
         setProvider: (id) => set({ providerId: id, selectedProvider: id }),
@@ -464,11 +470,11 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
               ...defaultRegistry,
               ...configuredProviders.filter((provider) => !defaultRegistry.some((preset) => preset.id === provider.id)),
             ];
-            const providerId = providers.some((provider) => provider.id === get().providerId) ? get().providerId : 'mock';
+            const providerId = providers.some((provider) => provider.id === get().providerId) ? get().providerId : fallbackProviderId;
             set({ providers, providerId, selectedProvider: providerId });
           } catch (error) {
             console.error('[LOTUS] Failed to refresh AI providers:', error);
-            if (get().providers.length === 0) set({ providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock' });
+            if (get().providers.length === 0) set({ providers: defaultRegistry, providerId: fallbackProviderId, selectedProvider: fallbackProviderId });
           }
         },
 
@@ -497,7 +503,7 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
         setExportFormat: (exportFormat) => set({ exportFormat }),
         resetStore: () => {
           const schema = createEmptySchema();
-          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: 'mock', selectedProvider: 'mock', activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, activeOverlay: null, isToolsOpen: false, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
+          set({ messages: [], isLoading: false, streamingMessage: '', error: null, appliedChanges: [], schema, history: [schema], schemaHistory: [schema], historyIndex: 0, currentProjectId: null, project: null, projects: [], providers: defaultRegistry, providerId: fallbackProviderId, selectedProvider: fallbackProviderId, activePanel: 'chat', mobileTab: 'chat', isSidebarOpen: true, activeOverlay: null, isToolsOpen: false, apiKeys: {}, theme: 'dark', exportFormat: 'pwa', generationStatus: 'idle' });
         },
       }),
       {
