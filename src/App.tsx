@@ -712,7 +712,12 @@ function App() {
         store.setProvider(chatModelId);
         store.setCurrentProject({ ...workingProject, history: [] });
         await store.sendMessage(content);
-        const state = store;
+        // Re-read the store: sendMessage replaced the state object, so the
+        // `store` snapshot captured before the await holds stale data.
+        const state = await importStore();
+        if (state.generationStatus === 'error') {
+          throw new Error(state.error ?? 'Generation failed.');
+        }
         const latestAssistant = state.messages.slice().reverse().find((message) => message.role === 'assistant');
         const updatedProject = {
           ...workingProject,
@@ -739,15 +744,15 @@ function App() {
           ),
         );
       });
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Unknown error';
+      const fallback = hasSupabaseEnv
+        ? `Generation failed: ${detail}`
+        : `Local-only mode: I captured "${content}". Add Supabase env vars to enable live AI generation.`;
       setMessages((current) =>
         current.map((message) =>
           message.id === assistantId
-            ? {
-                ...message,
-                content: `Local-only mode: I captured "${content}". Add Supabase env vars to enable live AI generation.`,
-                isLoading: false,
-              }
+            ? { ...message, content: fallback, isLoading: false }
             : message,
         ),
       );
