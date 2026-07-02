@@ -8,7 +8,7 @@
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
-  background: #050402;
+  background: #050402 url("/logo-lotus.png") center / contain no-repeat;
   color: #fff8ed;
   isolation: isolate;
 }
@@ -16,10 +16,8 @@
 .landing-page.public-page {
   overflow-x: hidden;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(201, 155, 74, 0.22), transparent 34%),
-    linear-gradient(180deg, #fbf4e9, #efe2cd);
-  color: #2e2418;
+  background: #050402;
+  color: #fff8ed;
 }
 
 .landing-video {
@@ -28,7 +26,8 @@
   z-index: -3;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
   background: #050402;
 }
 
@@ -40,7 +39,7 @@
 }
 
 .landing-header.public-header .landing-menu-button {
-  color: #8f6210;
+  color: #fff8ed;
 }
 
 .landing-menu-button {
@@ -88,10 +87,11 @@
   top: calc(100% + 12px);
   right: 0;
   display: grid;
-  width: min(calc(100vw - 40px), 220px);
+  width: min(calc(100vw - 40px), 260px);
   overflow: hidden;
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.18);
+  background: linear-gradient(145deg, rgba(17, 55, 58, 0.54), rgba(180, 122, 44, 0.54));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-8px);
@@ -101,8 +101,7 @@
 }
 
 .public-header .landing-menu {
-  background: rgba(46, 36, 24, 0.12);
-  box-shadow: 0 18px 44px rgba(120, 86, 30, 0.14);
+  background: linear-gradient(145deg, rgba(17, 55, 58, 0.54), rgba(180, 122, 44, 0.54));
 }
 
 .landing-menu.show {
@@ -127,12 +126,12 @@
 }
 
 .public-header .landing-menu-action {
-  color: #2e2418;
+  color: #fff8ed;
 }
 
 .landing-menu a:hover,
 .landing-menu-action:hover {
-  color: #d4b36a;
+  color: #f5d782;
 }
 
 .landing-menu-action {
@@ -195,6 +194,14 @@
   padding: 82px 20px 42px;
 }
 
+.public-route-page.legal-about-background {
+  position: relative;
+  background:
+    linear-gradient(90deg, rgba(5, 4, 2, 0.82), rgba(5, 4, 2, 0.55) 52%, rgba(5, 4, 2, 0.24)),
+    linear-gradient(180deg, rgba(5, 4, 2, 0.58), rgba(5, 4, 2, 0.72)),
+    url("/lotus-legal-about-bg.png") center / cover fixed no-repeat;
+}
+
 .public-brand {
   position: fixed;
   top: max(18px, env(safe-area-inset-top));
@@ -202,7 +209,7 @@
   z-index: 18;
   border: none;
   background: transparent;
-  color: #8f6210;
+  color: #fff8ed;
   cursor: pointer;
   font-family: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   font-size: 22px;
@@ -212,7 +219,7 @@
 
 .public-kicker {
   margin: 0 0 12px;
-  color: #9a6b14;
+  color: #f0d28a;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -222,7 +229,7 @@
 .public-route-page h1 {
   max-width: 820px;
   margin: 0;
-  color: #2e2418;
+  color: #fff8ed;
   font-family: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   font-size: clamp(42px, 11vw, 92px);
   line-height: 0.98;
@@ -231,7 +238,7 @@
 .public-lede {
   max-width: 620px;
   margin: 18px 0 0;
-  color: #6e5e49;
+  color: rgba(255, 248, 237, 0.82);
   font-size: 17px;
   line-height: 1.55;
 }
@@ -242,17 +249,54 @@
   align-content: center;
 }
 
+.about-document {
+  display: grid;
+  max-width: 940px;
+  min-height: calc(100dvh - 124px);
+  align-content: center;
+  border: 1px solid rgba(255, 248, 237, 0.16);
+  border-radius: 8px;
+  background: rgba(5, 4, 2, 0.5);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 22px;
+}
+
+.about-section-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.about-section-grid section {
+  border-top: 1px solid rgba(212, 179, 106, 0.28);
+  padding-top: 14px;
+}
+
+.about-section-grid h2 {
+  margin: 0 0 8px;
+  color: #d4b36a;
+  font-size: 18px;
+}
+
+.about-section-grid p {
+  margin: 0;
+  color: rgba(255, 248, 237, 0.84);
+  line-height: 1.55;
+}
+
 .subscriptions-hero {
   display: grid;
   gap: 24px;
   align-items: center;
 }
 
-.subscriptions-hero img {
+.subscription-product-image {
   width: min(100%, 520px);
   border-radius: 8px;
   justify-self: center;
-  box-shadow: 0 28px 80px rgba(46, 36, 24, 0.26);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
 }
 
 .pricing-grid {
@@ -266,20 +310,20 @@
   gap: 14px;
   border: 1px solid rgba(169, 118, 27, 0.18);
   border-radius: 8px;
-  background: rgba(253, 247, 238, 0.72);
+  background: rgba(0, 0, 0, 0.22);
   padding: 20px;
   box-shadow: 0 12px 34px rgba(120, 86, 30, 0.08);
 }
 
 .pricing-card h2 {
   margin: 0;
-  color: #8f6210;
+  color: #d4b36a;
   font-family: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   font-size: 25px;
 }
 
 .price {
-  color: #2e2418;
+  color: #fff8ed;
   font-size: 26px;
   font-weight: 900;
 }
@@ -289,7 +333,7 @@
   gap: 9px;
   margin: 0;
   padding-left: 18px;
-  color: #6e5e49;
+  color: rgba(255, 248, 237, 0.8);
   line-height: 1.4;
 }
 
@@ -297,7 +341,7 @@
   min-height: 44px;
   border: none;
   border-radius: 999px;
-  background: #a9761b;
+  background: linear-gradient(135deg, #f5d782, #a9761b);
   color: #fff8ed;
   cursor: pointer;
   font-weight: 900;
@@ -310,9 +354,12 @@
 .legal-document {
   max-width: 860px;
   margin: 0 auto;
-  border: 1px solid rgba(169, 118, 27, 0.16);
+  border: 1px solid rgba(255, 248, 237, 0.16);
   border-radius: 8px;
-  background: rgba(253, 247, 238, 0.72);
+  background: rgba(5, 4, 2, 0.62);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   padding: 24px;
 }
 
@@ -322,7 +369,7 @@
 
 .legal-updated,
 .legal-copyright {
-  color: #8f6210;
+  color: #f0d28a;
   font-weight: 800;
 }
 
@@ -332,13 +379,13 @@
 
 .legal-section h2 {
   margin: 0 0 8px;
-  color: #8f6210;
+  color: #f0d28a;
   font-size: 18px;
 }
 
 .legal-section p {
   margin: 0;
-  color: #5d4f3c;
+  color: rgba(255, 248, 237, 0.82);
   line-height: 1.6;
 }
 
@@ -397,6 +444,14 @@
 
   .legal-document {
     padding: 42px;
+  }
+
+  .about-document {
+    padding: 42px;
+  }
+
+  .about-section-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

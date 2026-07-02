@@ -45,7 +45,7 @@ import './App.css';
 type ScreenName = 'home' | 'projects' | 'preview' | 'settings';
 type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys' | 'newProject';
 type DemoModelId = 'groq_demo' | 'groq_oss_120b' | 'openrouter_nemotron_super';
-type PublicPath = '/' | '/about' | '/privacy' | '/terms' | '/subscriptions';
+type PublicPath = '/' | '/about' | '/privacy' | '/terms' | '/subscriptions' | '/university';
 type LegalDoc = 'terms' | 'privacy';
 
 type ChatMessage = {
@@ -68,11 +68,12 @@ const hasSupabaseEnv = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.
 const assetBase = import.meta.env.BASE_URL;
 const landingLinks: Array<{ label: string; path: PublicPath }> = [
   { label: 'About', path: '/about' },
+  { label: 'Lotus University', path: '/university' },
   { label: 'Subscriptions', path: '/subscriptions' },
   { label: 'Privacy', path: '/privacy' },
   { label: 'Terms', path: '/terms' },
 ];
-const publicPaths: PublicPath[] = ['/', '/about', '/privacy', '/terms', '/subscriptions'];
+const publicPaths: PublicPath[] = ['/', '/about', '/privacy', '/terms', '/subscriptions', '/university'];
 const legalDocs: Record<LegalDoc, { title: string; updated: string; sections: Array<{ heading: string; body: ReactNode }> }> = {
   terms: {
     title: 'LOTUS Terms of Service',
@@ -1096,12 +1097,9 @@ function App() {
 
   return (
     <main className={`landing-page ${isHomeRoute ? '' : 'public-page'}`}>
-      {isHomeRoute && (
-        <video className="landing-video" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
-          <source src={`${assetBase}lotus-hero-desktop.mp4`} type="video/mp4" media="(min-width: 768px)" />
-          <source src={`${assetBase}lotus-hero-mobile.mp4`} type="video/mp4" />
-        </video>
-      )}
+      <video className="landing-video" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
+        <source src={`${assetBase}lotus-home-flowing-water.mp4`} type="video/mp4" />
+      </video>
 
       <header className={`landing-header ${isHomeRoute ? '' : 'public-header'}`}>
         <button
@@ -1117,7 +1115,24 @@ function App() {
         </button>
         {landingMenuOpen && (
           <nav id="landing-menu" className="landing-menu show">
-            {landingLinks.map((link) => (
+            <button
+              type="button"
+              className="landing-menu-action"
+              onClick={() => navigatePublicRoute('/about')}
+            >
+              About
+            </button>
+            <button
+              type="button"
+              className="landing-menu-action"
+              onClick={() => {
+                setLandingMenuOpen(false);
+                setBuilderOpen(true);
+              }}
+            >
+              App Builder
+            </button>
+            {landingLinks.slice(1).map((link) => (
               <button
                 key={link.path}
                 type="button"
@@ -1127,16 +1142,6 @@ function App() {
                 {link.label}
               </button>
             ))}
-            <button
-              type="button"
-              className="landing-menu-action"
-              onClick={() => {
-                setLandingMenuOpen(false);
-                setBuilderOpen(true);
-              }}
-            >
-              Open Builder
-            </button>
           </nav>
         )}
       </header>
@@ -1172,7 +1177,7 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
             <h1>Choose how much power LOTUS should unlock.</h1>
             <p className="public-lede">Start with previews, move into full exports, then scale with higher usage and your own model keys.</p>
           </div>
-          <img src={`${assetBase}lotus-subscription-box.png`} alt="LOTUS software box" />
+          <img className="subscription-product-image" src={`${assetBase}lotus-subscription-box.png`} alt="LOTUS software box" />
         </div>
         <div className="pricing-grid">
           {subscriptionPlans.map((plan) => (
@@ -1192,7 +1197,7 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
 
   if (legalDoc) {
     return (
-      <section className="public-route-page legal-route-page">
+      <section className="public-route-page legal-route-page legal-about-background">
         <button className="public-brand" type="button" onClick={onHome}>LOTUS</button>
         <article className="legal-document">
           <h1>{legalDoc.title}</h1>
@@ -1209,16 +1214,46 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
     );
   }
 
+  if (path === '/university') {
+    return (
+      <section className="public-route-page about-page">
+        <button className="public-brand" type="button" onClick={onHome}>LOTUS</button>
+        <div className="about-copy">
+          <p className="public-kicker">Lotus University</p>
+          <h1>Lotus University</h1>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="public-route-page about-page">
+    <section className="public-route-page about-page legal-about-background">
       <button className="public-brand" type="button" onClick={onHome}>LOTUS</button>
-      <div className="about-copy">
+      <article className="about-document">
         <p className="public-kicker">About</p>
-        <h1>A luxury operating layer for building software with AI.</h1>
+        <h1>LOTUS is a focused AI app builder for turning ideas into working software.</h1>
         <p className="public-lede">
-          LOTUS is a mobile-first app builder by Metallic.v1. It is designed to make app generation feel calm, precise, and production-minded from the first prompt to the final export.
+          LOTUS gives creators, founders, and teams a clean way to generate mobile-first apps, preview interfaces, save projects, connect providers, and prepare exports without losing control of their own work.
         </p>
-      </div>
+        <div className="about-section-grid">
+          <section>
+            <h2>What LOTUS does</h2>
+            <p>LOTUS helps users describe an app, shape the result, preview screens, manage projects, connect tools, and move toward a production-ready export flow.</p>
+          </section>
+          <section>
+            <h2>What stays separate</h2>
+            <p>The public landing pages are separate from the builder. About, Privacy, Terms, Subscriptions, and Lotus University do not use the builder bottom navigation or alter builder screens.</p>
+          </section>
+          <section>
+            <h2>Who owns LOTUS</h2>
+            <p>LOTUS is powered by Metallic.v1. The platform, brand, interface, workflows, templates, and proprietary systems remain owned by Metallic.v1 and its licensors.</p>
+          </section>
+          <section>
+            <h2>What users own</h2>
+            <p>Users retain ownership of their prompts, submitted content, and project ideas. Exported projects remain subject to any third-party libraries, services, or model terms used within those exports.</p>
+          </section>
+        </div>
+      </article>
     </section>
   );
 }
