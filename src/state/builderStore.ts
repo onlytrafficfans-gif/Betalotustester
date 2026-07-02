@@ -174,6 +174,17 @@ function extractSchema(content: string, fallbackName: string): AppSchema {
   return mergeSchemaUpdates(createEmptySchema(fallbackName), patch);
 }
 
+function readNumberSetting(key: string, fallback: number): number {
+  if (typeof localStorage === 'undefined') return fallback;
+  const value = Number(localStorage.getItem(key));
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function readStringSetting(key: string, fallback: string): string {
+  if (typeof localStorage === 'undefined') return fallback;
+  return localStorage.getItem(key) || fallback;
+}
+
 const initialSchema = createEmptySchema();
 const fallbackProviderId = SERVER_DEMO_PROVIDER_ID;
 
@@ -364,9 +375,11 @@ const useBuilderStore = create<BuilderState & BuilderActions>()(
                 provider: provider.id,
                 model: provider.model,
                 messages: [
-                  { role: 'system', content: providerRegistry.getSystemPrompt() },
+                  { role: 'system', content: readStringSetting('lotus_system_prompt', providerRegistry.getSystemPrompt()) },
                   { role: 'user', content },
                 ],
+                temperature: readNumberSetting('lotus_temperature', 0.7),
+                max_tokens: readNumberSetting('lotus_max_tokens', 1800),
               });
               fullContent = proxyResponse.content;
             }
