@@ -40,6 +40,7 @@ import type { StarterTemplate } from '@/lib/templates/templates';
 import lotusFlower from '@/assets/lotus-flower.png';
 import lotusLogo from '@/assets/lotus-logo.png';
 import './App.css';
+import UniversityHub from './components/UniversityHub';
 
 type ScreenName = 'home' | 'projects' | 'preview' | 'settings';
 type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys' | 'newProject';
@@ -1154,11 +1155,8 @@ function App() {
                 type="button"
                 className="landing-menu-action"
                 onClick={() => {
-                  if (link.path === '/university') {
-                    window.location.href = '/university/';
-                  } else {
-                    navigatePublicRoute(link.path);
-                  }
+                  setLandingMenuOpen(false);
+                  navigatePublicRoute(link.path);
                 }}
               >
                 {link.label}
@@ -1244,8 +1242,7 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
   }
 
   if (path === '/university') {
-    window.location.replace('/university/');
-    return null;
+    return <UniversityHub />;
   }
 
   return (
