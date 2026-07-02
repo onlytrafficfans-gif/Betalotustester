@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotus University Assessment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    min-height: 100vh;
+    background: url('uploads/ChatGPT Image Jun 29, 2026, 11_14_36 AM.png') center/cover no-repeat fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    align-items: center;
+  }
+  .panel {
+    width: 100%;
+    max-width: 600px;
+    background: rgba(12, 12, 12, 0.88);
+    border: 1px solid rgba(0, 255, 120, 0.25);
+    border-radius: 28px;
+    padding: 30px;
+    box-shadow: 0 0 40px rgba(0, 255, 120, 0.1);
+    backdrop-filter: blur(18px);
+    color: white;
+  }
+  .video-section {
+    height: 300px;
+    border-radius: 24px;
+    background: #000;
+    border: 1px solid rgba(0, 255, 120, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .video-section iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 24px;
+  }
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: #00ff88;
+    color: #001b0d;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 20px;
+    font-family: inherit;
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  h2 { margin-top: 0; margin-bottom: 12px; }
+  .progress-bar {
+    height: 10px;
+    background: #1b1b1b;
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 18px 0 28px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00ff88, #caff7a);
+    transition: 0.3s;
+  }
+  .counter { margin: 0 0 20px 0; color: #aaa; }
+  .question { font-size: 26px; line-height: 1.3; margin-bottom: 24px; }
+  .answers { display: grid; gap: 14px; margin-bottom: 24px; }
+  .answer-btn {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    padding: 18px;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: 0.2s;
+    color: white;
+    font-family: inherit;
+    font-size: 15px;
+    text-align: left;
+  }
+  .answer-btn:hover { border-color: rgba(255,255,255,0.25); }
+  .answer-btn.selected {
+    border-color: #00ff88;
+    background: rgba(0,255,120,0.14);
+  }
+  .status-box {
+    margin-top: 24px;
+    padding: 20px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .certificate {
+    display: none;
+    margin-top: 24px;
+    padding: 34px;
+    border-radius: 24px;
+    text-align: center;
+    background: linear-gradient(135deg, #151000, #332400);
+    border: 1px solid gold;
+    box-shadow: 0 0 45px rgba(255, 215, 0, 0.18);
+  }
+  .certificate h1 { color: gold; letter-spacing: 2px; margin-bottom: 8px; }
+  .certificate h2 { margin: 8px 0; }
+  .certificate .cert-name { color: gold; }
+  .bonus-box {
+    margin-top: 24px;
+    padding: 24px;
+    border-radius: 24px;
+    background: rgba(0, 255, 120, 0.08);
+    border: 1px solid rgba(0, 255, 120, 0.25);
+    text-align: center;
+  }
+  .bonus-box h3 { margin: 0 0 12px 0; color: #00ff88; }
+  .bonus-box p { margin: 0 0 16px 0; color: #aaa; font-size: 14px; }
+  .bonus-link {
+    display: inline-block;
+    padding: 14px 24px;
+    border-radius: 12px;
+    background: #00ff88;
+    color: #001b0d;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .bonus-link:hover { background: #caff7a; }
+  .hidden { display: none !important; }
+  .back-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .back-link:hover { background: rgba(255,255,255,0.15); }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white; }
+    .panel { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="panel">
+    <a href="index.html" class="back-link no-print">&larr; Back to Lessons</a>
+
+    <div id="videoSection" class="video-section">
+      <iframe id="lessonVideo" src="https://www.dailymotion.com/embed/video/xakcva2" allow="autoplay" allowfullscreen=""></iframe>
+    </div>
+
+    <button id="startQuizBtn" class="btn-primary no-print">&#9654; Start Quiz After Video</button>
+
+    <h2 id="lessonTitle">Lesson 1 Assessment</h2>
+
+    <div class="progress-bar">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+
+    <p id="counter" class="counter">Question 1 / 16</p>
+
+    <div id="quizBox" class="hidden">
+      <div id="question" class="question"></div>
+      <div id="answers" class="answers"></div>
+      <button id="nextBtn" class="btn-primary" disabled>Next</button>
+    </div>
+
+    <div id="resultBox" class="hidden">
+      <div id="statusBox" class="status-box"></div>
+      <button id="retakeBtn" class="btn-primary no-print">Retake Assessment</button>
+      <button id="nextLessonBtn" class="btn-primary no-print">Continue to Next Lesson</button>
+
+      <div id="certificate" class="certificate">
+        <h1>LOTUS UNIVERSITY</h1>
+        <h2>Certificate of Completion</h2>
+        <p>This certifies that</p>
+        <h2 id="certName" class="cert-name">Student</h2>
+        <p>has successfully completed</p>
+        <h2>AI Foundations 101</h2>
+        <p id="certDate"></p>
+        <p>Certificate ID: <span id="certId"></span></p>
+        <button onclick="window.print()" class="btn-primary no-print" style="background:gold; color:#001b0d;">Download / Print Certificate</button>
+      </div>
+
+      <div class="bonus-box no-print">
+        <h3>&#127873; FREE BONUS</h3>
+        <p>Download the complete Builder Foundations guide as a bonus gift</p>
+        <a href="lotus-bonus.pptx" download class="bonus-link">&#11015;&#65039; Download PPTX</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const questions = [
+    { q: "What is a prompt?", a: ["A video file", "Instructions given to AI", "A website theme", "A password"], correct: 1 },
+    { q: "Why do vague prompts usually create weak results?", a: ["AI refuses them", "AI has to guess", "They are too short to send", "They cost more"], correct: 1 },
+    { q: "What does giving AI a role help with?", a: ["Changing screen size", "Improving reasoning style", "Deleting history", "Speeding internet"], correct: 1 },
+    { q: "Which is a stronger role?", a: ["Help me", "You are a senior software engineer", "Do something", "Make it good"], correct: 1 },
+    { q: "What does context explain?", a: ["The situation and background", "The app password", "The browser cache", "The file size"], correct: 0 },
+    { q: "What should a task do?", a: ["Be unclear", "Describe exactly what you want", "Avoid details", "Hide the goal"], correct: 1 },
+    { q: "What are constraints?", a: ["Rules or requirements", "Random colors", "Broken links", "Student names"], correct: 0 },
+    { q: "Which prompt is stronger?", a: ["Make a website", "Create a dark mobile-first landing page for Lotus", "Help", "Do this fast"], correct: 1 },
+    { q: "What is the Lotus Formula?", a: ["Role, Context, Task, Constraints", "Login, Password, Email, Code", "Color, Font, Logo, Button", "Speed, Price, Luck, Guess"], correct: 0 },
+    { q: "What should AI not be forced to do?", a: ["Guess the goal", "Follow instructions", "Use context", "Format answers"], correct: 0 },
+    { q: "Why do examples improve AI output?", a: ["They show the desired style", "They delete the prompt", "They lower brightness", "They block answers"], correct: 0 },
+    { q: "What makes a prompt professional?", a: ["Clear role, context, task, and requirements", "One random sentence", "No details", "Confusing wording"], correct: 0 },
+    { q: "What does AI respond best to?", a: ["Clear instructions", "Hidden meaning", "Silence", "Incomplete ideas"], correct: 0 },
+    { q: "What happens when you add requirements?", a: ["The output becomes more targeted", "The app closes", "The screen locks", "The AI forgets"], correct: 0 },
+    { q: "What is the goal of prompt engineering?", a: ["Communicate clearly with AI", "Make passwords", "Design logos only", "Avoid useful answers"], correct: 0 },
+    { q: "What should you do after AI gives an answer?", a: ["Review and refine it", "Never read it", "Delete the app", "Restart your computer"], correct: 0 }
+  ];
+
+  let index = 0;
+  let selected = null;
+  let answers = [];
+  let attempts = Number(localStorage.getItem("lotusAttempts") || 1);
+
+  const videoSection = document.getElementById("videoSection");
+  const startQuizBtn = document.getElementById("startQuizBtn");
+  const quizBox = document.getElementById("quizBox");
+  const resultBox = document.getElementById("resultBox");
+  const questionEl = document.getElementById("question");
+  const answersEl = document.getElementById("answers");
+  const counterEl = document.getElementById("counter");
+  const progressFill = document.getElementById("progressFill");
+  const nextBtn = document.getElementById("nextBtn");
+  const statusBox = document.getElementById("statusBox");
+  const retakeBtn = document.getElementById("retakeBtn");
+  const nextLessonBtn = document.getElementById("nextLessonBtn");
+  const certificate = document.getElementById("certificate");
+  const certDate = document.getElementById("certDate");
+  const certId = document.getElementById("certId");
+
+  function renderQuestion() {
+    const item = questions[index];
+    questionEl.textContent = item.q;
+    counterEl.textContent = `Question ${index + 1} / ${questions.length}`;
+    progressFill.style.width = `${(index / questions.length) * 100}%`;
+    nextBtn.disabled = true;
+    selected = null;
+
+    answersEl.innerHTML = "";
+    item.a.forEach((answer, i) => {
+      const div = document.createElement("button");
+      div.className = "answer-btn";
+      div.textContent = `${String.fromCharCode(65 + i)}. ${answer}`;
+      div.onclick = () => {
+        document.querySelectorAll(".answer-btn").forEach(el => el.classList.remove("selected"));
+        div.classList.add("selected");
+        selected = i;
+        nextBtn.disabled = false;
+      };
+      answersEl.appendChild(div);
+    });
+  }
+
+  function handleNext() {
+    const newAnswers = [...answers, selected];
+    if (index < questions.length - 1) {
+      index = index + 1;
+      answers = newAnswers;
+      renderQuestion();
+    } else {
+      gradeTest(newAnswers);
+    }
+  }
+
+  function gradeTest(finalAnswers) {
+    let score = 0;
+    finalAnswers.forEach((answer, i) => {
+      if (answer === questions[i].correct) score++;
+    });
+
+    let status = "";
+    let color = "";
+
+    if (score === questions.length) { status = "GREEN PASS"; color = "green"; }
+    else if (score >= questions.length - 6) { status = "YELLOW PASS WITH REVIEW"; color = "yellow"; }
+    else { status = "RED NOT PASSED"; color = "red"; }
+
+    const history = JSON.parse(localStorage.getItem("lotusHistory") || "[]");
+    history.push({ score, status });
+    localStorage.setItem("lotusHistory", JSON.stringify(history));
+
+    if (color !== "red") {
+      const completed = JSON.parse(localStorage.getItem('completedLessons') || '[]');
+      if (!completed.includes(1)) {
+        completed.push(1);
+        localStorage.setItem('completedLessons', JSON.stringify(completed));
+      }
+    }
+
+    quizBox.classList.add("hidden");
+    resultBox.classList.remove("hidden");
+
+    statusBox.style.background = color === "green" ? "rgba(0,255,120,.16)" : color === "yellow" ? "rgba(255,220,70,.16)" : "rgba(255,50,50,.16)";
+    statusBox.style.color = color === "green" ? "#00ff88" : color === "yellow" ? "#ffe45c" : "#ff5555";
+    statusBox.innerHTML = `${status}<br>${score} / ${questions.length} Correct`;
+
+    progressFill.style.width = "100%";
+
+    if (color === "red") {
+      nextLessonBtn.disabled = true;
+      nextLessonBtn.textContent = "Next Lesson Locked";
+    } else {
+      nextLessonBtn.disabled = false;
+      nextLessonBtn.textContent = "Back to Lessons";
+      nextLessonBtn.onclick = () => window.location.href = 'index.html';
+      localStorage.setItem("lesson1Passed", "true");
+      showCertificate(score);
+    }
+  }
+
+  function showCertificate(score) {
+    certificate.style.display = "block";
+    certDate.textContent = new Date().toLocaleDateString();
+    certId.textContent = "LOTUS-" + Math.floor(Math.random() * 999999);
+  }
+
+  function startQuiz() {
+    videoSection.style.display = "none";
+    startQuizBtn.style.display = "none";
+    quizBox.classList.remove("hidden");
+    renderQuestion();
+  }
+
+  function handleRetake() {
+    attempts = attempts + 1;
+    localStorage.setItem("lotusAttempts", attempts);
+    index = 0;
+    selected = null;
+    answers = [];
+    quizBox.classList.remove("hidden");
+    resultBox.classList.add("hidden");
+    certificate.style.display = "none";
+    renderQuestion();
+  }
+
+  startQuizBtn.onclick = startQuiz;
+  nextBtn.onclick = handleNext;
+  retakeBtn.onclick = handleRetake;
+})();
+</script>
+</body>
+</html>

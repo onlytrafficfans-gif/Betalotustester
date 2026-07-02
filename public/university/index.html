@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotus University</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', Arial, sans-serif;
+    min-height: 100vh;
+    background: url('uploads/ChatGPT Image Jun 29, 2026, 11_14_36 AM.png') center/cover no-repeat fixed;
+    padding: clamp(20px, 5vw, 40px) 20px;
+    color: #fff;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .brand img { height: clamp(44px, 10vw, 60px); width: auto; }
+  .brand h1 {
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: 800;
+    color: #00ff88;
+    margin: 0;
+  }
+  .sub { font-size: clamp(14px, 4vw, 18px); color: #aaa; }
+  .progress-card {
+    background: rgba(12, 12, 12, 0.88);
+    border: 1px solid rgba(0, 255, 120, 0.25);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 28px;
+    text-align: center;
+    backdrop-filter: blur(12px);
+  }
+  .progress-label {
+    margin: 0 0 8px 0;
+    color: #aaa;
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+  .progress-count {
+    margin: 0;
+    font-size: clamp(20px, 5vw, 30px);
+    color: #00ff88;
+  }
+  .progress-bar {
+    height: 6px;
+    background: #1b1b1b;
+    border-radius: 20px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00ff88, #caff7a);
+    transition: 0.3s;
+  }
+  .lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .lesson-card {
+    background: rgba(12, 12, 12, 0.88);
+    border-radius: 20px;
+    padding: 24px;
+    text-align: center;
+    backdrop-filter: blur(12px);
+    transition: transform 0.2s;
+  }
+  .lesson-card:hover { transform: translateY(-2px); }
+  .lesson-icon { font-size: 40px; margin-bottom: 12px; }
+  .lesson-title { margin: 0 0 8px 0; font-size: 18px; font-weight: 700; }
+  .lesson-status { margin: 0 0 16px 0; font-size: 13px; }
+  .lesson-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: rgba(12, 12, 12, 0.95);
+    border: 1px solid rgba(0, 255, 120, 0.25);
+    border-radius: 20px;
+    padding: clamp(20px, 5vw, 40px);
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+  }
+  .modal h2 { color: #00ff88; margin: 0 0 16px 0; font-size: clamp(24px, 6vw, 32px); }
+  .modal p { color: #aaa; margin: 0 0 20px 0; font-size: clamp(14px, 4vw, 16px); }
+  .modal input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(0, 255, 120, 0.25);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-size: 14px;
+    margin-bottom: 16px;
+    outline: none;
+    font-family: inherit;
+  }
+  .cert-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1001;
+    display: none;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .cert-overlay.active { display: block; }
+  .cert-content {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .cert-back {
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 12px;
+    background: #00ff88;
+    color: #001b0d;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .cert-paper {
+    background: white;
+    border-radius: 12px;
+    padding: clamp(20px, 5vw, 40px);
+    text-align: center;
+    color: #333;
+  }
+  .cert-paper h1 {
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: 800;
+    color: #003d1f;
+    margin: 0 0 24px 0;
+  }
+  .cert-paper h2 {
+    font-size: clamp(24px, 5vw, 36px);
+    color: #00aa55;
+    margin: 16px 0;
+    font-weight: 700;
+  }
+  .cert-paper p { font-size: clamp(13px, 3.5vw, 16px); margin: 16px 0; line-height: 1.6; }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white; }
+    .cert-overlay { display: block !important; position: static; background: white; }
+    .cert-paper { box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="brand">
+      <img src="lotus-logo.png" alt="Lotus">
+      <h1>Lotus University</h1>
+    </div>
+    <p class="sub">AI Foundations 101</p>
+  </div>
+
+  <div class="progress-card">
+    <p class="progress-label">PROGRESS</p>
+    <h2 class="progress-count"><span id="completedCount">0</span> / 10 Lessons Completed</h2>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+  </div>
+
+  <div id="lessonsGrid" class="lessons-grid"></div>
+</div>
+
+<div id="certModal" class="modal-overlay no-print">
+  <div class="modal">
+    <h2>&#127881; Congratulations!</h2>
+    <p>You've completed all 10 lessons. Enter your name to receive your certificate.</p>
+    <input id="certNameInput" type="text" placeholder="Enter your full name">
+    <button id="generateCertBtn" class="cert-back" style="width:100%; margin-bottom:0;">Generate My Certificate</button>
+  </div>
+</div>
+
+<div id="certDisplay" class="cert-overlay no-print">
+  <div class="cert-content">
+    <button id="closeCertBtn" class="cert-back">&larr; Back to Lessons</button>
+    <div class="cert-paper">
+      <h1>Certificate of Achievement</h1>
+      <p>This certificate is proudly presented to</p>
+      <h2 id="certDisplayName">Student</h2>
+      <p>In recognition of successfully completing Lotus University AI Foundations 101 and demonstrating the knowledge and skills required to begin building AI-powered applications with confidence.</p>
+      <p style="font-weight:700">Welcome, Certified Lotus Builder.</p>
+      <p style="font-size:12px; color:#999; margin:24px 0;">Date: <span id="certDisplayDate"></span></p>
+      <button id="printCertBtn" class="cert-back" style="background:#00aa55; color:white;">&#128424;&#65039; Print Certificate</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const completedLessons = JSON.parse(localStorage.getItem('completedLessons') || '[]');
+  let showCertModal = false;
+  let showCertDisplay = false;
+  let certName = '';
+
+  const completedCount = completedLessons.length;
+  const progressPct = (completedCount / 10) * 100;
+
+  document.getElementById('completedCount').textContent = completedCount;
+  document.getElementById('progressFill').style.width = progressPct + '%';
+
+  const grid = document.getElementById('lessonsGrid');
+
+  for (let i = 1; i <= 10; i++) {
+    const isCompleted = completedLessons.includes(i);
+    const isUnlocked = i === 1 || completedLessons.includes(i - 1);
+
+    const card = document.createElement('div');
+    card.className = 'lesson-card';
+    card.style.border = '1.5px solid ' + (isCompleted ? 'rgba(0, 255, 120, 0.5)' : isUnlocked ? 'rgba(0, 255, 120, 0.25)' : 'rgba(255, 255, 255, 0.1)');
+    card.style.opacity = isUnlocked ? 1 : 0.5;
+
+    const icon = isCompleted ? '&#9989;' : isUnlocked ? '&#127891;' : '&#128274;';
+    const statusText = isCompleted ? 'Completed' : isUnlocked ? 'Ready to start' : 'Locked';
+    const statusColor = isCompleted ? '#00ff88' : '#aaa';
+    const btnBg = isCompleted ? '#555' : isUnlocked ? '#00ff88' : '#333';
+    const btnColor = isCompleted ? '#ccc' : isUnlocked ? '#001b0d' : '#666';
+    const btnText = isCompleted ? 'Review' : isUnlocked ? 'Start Lesson' : 'Locked';
+
+    card.innerHTML = `
+      <div class="lesson-icon">${icon}</div>
+      <h3 class="lesson-title">Lesson ${i}</h3>
+      <p class="lesson-status" style="color:${statusColor}">${statusText}</p>
+      <button class="lesson-btn" style="background:${btnBg}; color:${btnColor}; cursor:${isUnlocked ? 'pointer' : 'not-allowed'}" ${!isUnlocked ? 'disabled' : ''}>${btnText}</button>
+    `;
+
+    const btn = card.querySelector('.lesson-btn');
+    if (isUnlocked) {
+      btn.onclick = () => { window.location.href = 'assessment.html'; };
+    }
+
+    grid.appendChild(card);
+  }
+
+  if (completedCount >= 10) {
+    document.getElementById('certModal').classList.add('active');
+  }
+
+  document.getElementById('generateCertBtn').onclick = () => {
+    const input = document.getElementById('certNameInput');
+    const name = input ? input.value.trim() : '';
+    if (name) {
+      certName = name;
+      document.getElementById('certModal').classList.remove('active');
+      document.getElementById('certDisplay').classList.add('active');
+      document.getElementById('certDisplayName').textContent = certName;
+      document.getElementById('certDisplayDate').textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+  };
+
+  document.getElementById('closeCertBtn').onclick = () => {
+    document.getElementById('certDisplay').classList.remove('active');
+  };
+
+  document.getElementById('printCertBtn').onclick = () => window.print();
+})();
+</script>
+</body>
+</html>

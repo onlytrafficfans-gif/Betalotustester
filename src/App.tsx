@@ -1153,7 +1153,13 @@ function App() {
                 key={link.path}
                 type="button"
                 className="landing-menu-action"
-                onClick={() => navigatePublicRoute(link.path)}
+                onClick={() => {
+                  if (link.path === '/university') {
+                    window.location.href = '/university/';
+                  } else {
+                    navigatePublicRoute(link.path);
+                  }
+                }}
               >
                 {link.label}
               </button>
@@ -1238,15 +1244,8 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
   }
 
   if (path === '/university') {
-    return (
-      <section className="public-route-page about-page">
-        <button className="public-brand" type="button" onClick={onHome}>LOTUS</button>
-        <div className="about-copy">
-          <p className="public-kicker">Lotus University</p>
-          <h1>Lotus University</h1>
-        </div>
-      </section>
-    );
+    window.location.replace('/university/');
+    return null;
   }
 
   return (
