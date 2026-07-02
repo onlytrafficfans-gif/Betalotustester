@@ -176,8 +176,11 @@ function extractSchema(content: string, fallbackName: string): AppSchema {
 
 function readNumberSetting(key: string, fallback: number): number {
   if (typeof localStorage === 'undefined') return fallback;
-  const value = Number(localStorage.getItem(key));
-  return Number.isFinite(value) ? value : fallback;
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  // value > 0 also heals storage corrupted by the old Number(null) === 0 bug
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function readStringSetting(key: string, fallback: string): string {

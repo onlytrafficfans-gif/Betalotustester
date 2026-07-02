@@ -224,6 +224,7 @@ function App() {
   const [providerKey, setProviderKey] = useState('');
   const [providerStatus, setProviderStatus] = useState('');
   const [chatModelId, setChatModelId] = useState<DemoModelId>(() => readStoredDemoModel());
+  const [landingVideoReady, setLandingVideoReady] = useState(false);
   const [previewModule, setPreviewModule] = useState<null | { LivePreview: (props: { schema: AppSchema }) => ReactElement }>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -303,6 +304,17 @@ function App() {
       cancelled = true;
     };
   }, [activeScreen, previewError, previewModule]);
+
+  useEffect(() => {
+    // Defer the heavy landing video until the browser is idle so the poster
+    // paints immediately and the initial load isn't blocked by the download.
+    if (typeof requestIdleCallback === 'function') {
+      const idleId = requestIdleCallback(() => setLandingVideoReady(true), { timeout: 2500 });
+      return () => cancelIdleCallback(idleId);
+    }
+    const timeoutId = window.setTimeout(() => setLandingVideoReady(true), 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     const updatePath = () => setPublicPath(getPublicPath());
@@ -1113,9 +1125,13 @@ function App() {
   return (
     <main className={`landing-page ${isHomeRoute ? '' : 'public-page'}`}>
       {isHomeRoute && (
-        <video className="landing-video" autoPlay loop muted playsInline preload="auto" poster={`${assetBase}lotus-landing-bg.jpg`} aria-hidden="true">
-          <source src={`${assetBase}lotus-background.mp4`} type="video/mp4" />
-        </video>
+        landingVideoReady ? (
+          <video className="landing-video" autoPlay loop muted playsInline preload="metadata" poster={`${assetBase}lotus-landing-bg.jpg`} aria-hidden="true">
+            <source src={`${assetBase}lotus-background.mp4`} type="video/mp4" />
+          </video>
+        ) : (
+          <div className="landing-video" aria-hidden="true" />
+        )
       )}
 
       <header className={`landing-header ${isHomeRoute ? '' : 'public-header'}`}>
@@ -1528,8 +1544,11 @@ function readStoredString(key: string, fallback: string): string {
 
 function readStoredNumber(key: string, fallback: number): number {
   if (typeof localStorage === 'undefined') return fallback;
-  const value = Number(localStorage.getItem(key));
-  return Number.isFinite(value) ? value : fallback;
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  // value > 0 also heals storage corrupted by the old Number(null) === 0 bug
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function readStoredBool(key: string, fallback: boolean): boolean {
