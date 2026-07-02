@@ -10,6 +10,11 @@
   color: #2e2418;
 }
 
+.lotus-page.dark-mode-page {
+  background: #070503;
+  color: #f7ead4;
+}
+
 .lotus-app {
   --bg: #fbf4e9;
   --card: #f7eddd;
@@ -30,6 +35,80 @@
   overflow: hidden;
   background: var(--bg);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.15);
+}
+
+.lotus-app.dark-mode {
+  --bg: #130d08;
+  --card: #1d140d;
+  --card2: #271a10;
+  --gold: #d39b37;
+  --gold-deep: #f0c26a;
+  --gold-soft: #b77f27;
+  --ink: #fff3df;
+  --ink-soft: #c9b08a;
+  --line: rgba(232, 180, 86, 0.2);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+
+  background: var(--bg);
+  box-shadow: 0 0 70px rgba(0, 0, 0, 0.55);
+}
+
+.lotus-app.dark-mode .lotus-screen,
+.lotus-app.dark-mode .chatbar,
+.lotus-app.dark-mode .popover,
+.lotus-app.dark-mode #nav,
+.lotus-app.dark-mode .sheet {
+  background: var(--bg);
+}
+
+.lotus-app.dark-mode .message-bubble.assistant,
+.lotus-app.dark-mode .pop-item,
+.lotus-app.dark-mode .searchbar,
+.lotus-app.dark-mode .filterbtn,
+.lotus-app.dark-mode .projcard,
+.lotus-app.dark-mode .infocard,
+.lotus-app.dark-mode .settings-group,
+.lotus-app.dark-mode .sheet-group,
+.lotus-app.dark-mode .settings-row,
+.lotus-app.dark-mode .profile-top {
+  background: var(--card);
+  color: var(--ink);
+}
+
+.lotus-app.dark-mode .nav-item.active,
+.lotus-app.dark-mode .phone-screen,
+.lotus-app.dark-mode .settings-row:active,
+.lotus-app.dark-mode .pop-item:active,
+.lotus-app.dark-mode .sheet-row:active {
+  background: var(--card2);
+}
+
+.lotus-app.dark-mode .title,
+.lotus-app.dark-mode .headtext h2,
+.lotus-app.dark-mode .settings-head h1,
+.lotus-app.dark-mode .sheet h3,
+.lotus-app.dark-mode .sec-label,
+.lotus-app.dark-mode .nav-item.active,
+.lotus-app.dark-mode .chev {
+  color: var(--gold-deep);
+}
+
+.lotus-app.dark-mode .phone {
+  background: #060403;
+  border-color: rgba(240, 194, 106, 0.35);
+}
+
+.lotus-app.dark-mode .phone-screen {
+  color: var(--ink);
+}
+
+.lotus-app.dark-mode .ps-search,
+.lotus-app.dark-mode .ps-nav {
+  background: #130d08;
+}
+
+.lotus-app.dark-mode .avatar {
+  background: #2d2115;
 }
 
 .serif {

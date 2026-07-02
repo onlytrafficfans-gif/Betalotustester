@@ -11,6 +11,7 @@ import {
   LayoutTemplate,
   Moon,
   MoreHorizontal,
+  Play,
   Plus,
   Search,
   Send,
@@ -61,6 +62,7 @@ function App() {
   const [projectSearch, setProjectSearch] = useState('');
   const [lightMode, setLightMode] = useState(true);
   const [sessionStatus, setSessionStatus] = useState(hasSupabaseEnv ? 'Connecting' : 'Local-only');
+  const [storageUserId, setStorageUserId] = useState<string | null>(null);
   const [previewModule, setPreviewModule] = useState<null | { LivePreview: (props: { schema: AppSchema }) => ReactElement }>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -79,7 +81,40 @@ function App() {
     void import('@/lib/supabase/auth')
       .then(async ({ getCurrentUser, signInAnonymously }) => {
         const user = (await getCurrentUser()) ?? (await signInAnonymously()).user;
-        if (!cancelled) setSessionStatus(user ? 'Guest - Local Account' : 'Local-only');
+        if (!user || cancelled) {
+          if (!cancelled) setSessionStatus('Local-only');
+          return;
+        }
+        setStorageUserId(user.id);
+        setSessionStatus('Guest - Supabase');
+        await syncStore((store) => store.setCurrentUser(user));
+        const [{ loadUserProjects, saveProject }] = await Promise.all([import('@/lib/supabase/projectStorage')]);
+        const remote = await loadUserProjects(user.id);
+        if (cancelled) return;
+        if (remote.length > 0) {
+          const hydrated = remote.map((project) => ({
+            id: project.id,
+            name: project.name,
+            schema: project.schema ?? createEmptySchema(project.name),
+            createdAt: new Date(project.created_at).getTime(),
+            updatedAt: new Date(project.updated_at).getTime(),
+          }));
+          setProjects(hydrated);
+          setCurrentProjectId(hydrated[0]?.id ?? null);
+          await syncStore((store) => {
+            store.setCurrentUser(user);
+            if (hydrated[0]) store.setCurrentProject({ ...hydrated[0], history: [] });
+          });
+        } else {
+          const seed = makeProject('Travel Planner');
+          setProjects([seed]);
+          setCurrentProjectId(seed.id);
+          await saveProject(user.id, { id: seed.id, name: seed.name, schema: seed.schema });
+          await syncStore((store) => {
+            store.setCurrentUser(user);
+            store.setCurrentProject({ ...seed, history: [] });
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setSessionStatus('Local-only');
@@ -115,6 +150,18 @@ function App() {
     setOpenSheet(sheet);
   };
 
+  const persistProject = async (project: LocalProject) => {
+    if (!hasSupabaseEnv || !storageUserId) return;
+    const { saveProject } = await import('@/lib/supabase/projectStorage');
+    await saveProject(storageUserId, { id: project.id, name: project.name, schema: project.schema }).catch(() => undefined);
+  };
+
+  const deleteStoredProject = async (id: string) => {
+    if (!hasSupabaseEnv || !storageUserId) return;
+    const { deleteProject } = await import('@/lib/supabase/projectStorage');
+    await deleteProject(id).catch(() => undefined);
+  };
+
   const handleHomeTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
     if (!touchStart.current || openSheet) return;
     const touch = event.changedTouches[0];
@@ -124,18 +171,23 @@ function App() {
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.6) go(dx < 0 ? 'projects' : 'preview');
   };
 
-  const createProject = (name = 'Untitled App') => {
+  const createProject = async (name = 'Untitled App') => {
     const project = makeProject(name);
     setProjects((current) => [project, ...current]);
     setCurrentProjectId(project.id);
     go('home');
-    void syncStore((store) => store.createProject(name));
+    await persistProject(project);
+    await syncStore((store) => {
+      store.setCurrentProject({ ...project, history: [] });
+      void store.saveCurrentProject();
+    });
   };
 
   const openProject = (id: string) => {
     setCurrentProjectId(id);
     go('home');
-    void syncStore((store) => store.loadProject(id));
+    const project = projects.find((item) => item.id === id);
+    if (project) void syncStore((store) => store.setCurrentProject({ ...project, history: [] }));
   };
 
   const renameProject = (id: string) => {
@@ -147,6 +199,8 @@ function App() {
         item.id === id ? { ...item, name, updatedAt: Date.now(), schema: { ...item.schema, name } } : item,
       ),
     );
+    const updated = projects.find((item) => item.id === id);
+    if (updated) void persistProject({ ...updated, name, updatedAt: Date.now(), schema: { ...updated.schema, name } });
     void syncStore((store) => store.renameProject(id, name));
   };
 
@@ -154,6 +208,7 @@ function App() {
     if (projects.length <= 1 || !window.confirm('Delete this project?')) return;
     setProjects((current) => current.filter((project) => project.id !== id));
     if (currentProjectId === id) setCurrentProjectId(projects.find((project) => project.id !== id)?.id ?? null);
+    void deleteStoredProject(id);
     void syncStore((store) => store.deleteProject(id));
   };
 
@@ -171,6 +226,7 @@ function App() {
 
     try {
       await withStore(async (store) => {
+        store.setCurrentProject({ ...currentProject, history: [] });
         await store.sendMessage(content);
         const state = store;
         const latestAssistant = state.messages.slice().reverse().find((message) => message.role === 'assistant');
@@ -213,12 +269,16 @@ function App() {
     setCurrentProjectId(project.id);
     setMessages([]);
     setProjectSearch('');
-    void syncStore((store) => store.resetStore());
+    void persistProject(project);
+    void syncStore((store) => {
+      store.resetStore();
+      store.setCurrentProject({ ...project, history: [] });
+    });
   };
 
   return (
-    <main className="lotus-page" onClick={() => setPopoverOpen(false)}>
-      <div className="lotus-app" data-active-screen={activeScreen}>
+    <main className={`lotus-page ${lightMode ? '' : 'dark-mode-page'}`} onClick={() => setPopoverOpen(false)}>
+      <div className={`lotus-app ${lightMode ? '' : 'dark-mode'}`} data-active-screen={activeScreen}>
         <section
           id="home"
           className={`lotus-screen ${activeScreen === 'home' ? 'active' : ''}`}
@@ -233,7 +293,7 @@ function App() {
               <Settings aria-hidden="true" />
             </button>
             <button className="iconbtn" type="button" aria-label="Preview" onClick={() => go('preview')}>
-              <CirclePlay aria-hidden="true" fill="currentColor" strokeWidth={0} />
+              <Play aria-hidden="true" fill="currentColor" strokeWidth={2.2} />
             </button>
           </div>
           <div className="home-hero">
@@ -305,7 +365,7 @@ function App() {
               <Settings aria-hidden="true" />
             </button>
             <button className="iconbtn" type="button" aria-label="Preview">
-              <CirclePlay aria-hidden="true" fill="currentColor" strokeWidth={0} />
+              <Play aria-hidden="true" fill="currentColor" strokeWidth={2.2} />
             </button>
           </div>
           <div className="headtext">
@@ -351,7 +411,7 @@ function App() {
               </div>
               <div className="pt">
                 <b>Guest</b>
-                <span>{sessionStatus}</span>
+              <span>{sessionStatus}</span>
               </div>
               <span className="tag">Beta</span>
             </div>
