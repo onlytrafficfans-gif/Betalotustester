@@ -8,9 +8,7 @@
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(5, 4, 2, 0.12), rgba(5, 4, 2, 0.26)),
-    #050402 url("/lotus-landing-bg.jpg") center / contain no-repeat;
+  background: #050402;
   color: #fff8ed;
   isolation: isolate;
 }
@@ -30,7 +28,7 @@
   z-index: -3;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   background: #050402;
 }
