@@ -1112,7 +1112,7 @@ function App() {
   return (
     <main className={`landing-page ${isHomeRoute ? '' : 'public-page'}`}>
       {isHomeRoute && (
-        <video className="landing-video" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
+        <video className="landing-video" autoPlay loop muted playsInline preload="auto" poster={`${assetBase}lotus-landing-bg.jpg`} aria-hidden="true">
           <source src={`${assetBase}lotus-home-flowing-water.mp4`} type="video/mp4" />
         </video>
       )}
