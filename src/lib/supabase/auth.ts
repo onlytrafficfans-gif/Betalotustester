@@ -58,6 +58,23 @@ export async function signIn(email: string, password: string): Promise<{ user: A
   return { user: null, error: null };
 }
 
+export async function signInAnonymously(): Promise<{ user: AuthUser | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) return { user: null, error: error.message };
+    if (data.user) {
+      const email = data.user.email ?? `guest-${data.user.id.slice(0, 8)}@anonymous.local`;
+      const user = { id: data.user.id, email, name: 'Guest' };
+      await ensureUserProfile(user).catch(() => undefined);
+      return { user, error: null };
+    }
+  } catch (error) {
+    console.error('[LOTUS] anonymous sign-in failed:', error);
+    return { user: null, error: 'Anonymous sign-in is unavailable. Continuing locally.' };
+  }
+  return { user: null, error: null };
+}
+
 export async function signInWithGoogle(): Promise<{ error: string | null }> {
   try {
     const { error } = await supabase.auth.signInWithOAuth({
