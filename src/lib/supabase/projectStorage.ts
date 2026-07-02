@@ -39,15 +39,15 @@ function dbToProject(row: any): Project {
 export async function loadProjects(): Promise<Project[]> {
   try {
     const { data: session } = await supabase.auth.getSession();
-    if (!session.session) return [getDefaultProject()];
+    if (!session.session) return [];
     const userId = session.session.user.id;
     const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId).order('updated_at', { ascending: false });
-    if (error) { console.error('loadProjects error:', error); return [getDefaultProject()]; }
-    if (!data || data.length === 0) return [getDefaultProject()];
+    if (error) { console.error('loadProjects error:', error); return []; }
+    if (!data || data.length === 0) return [];
     return data.map(dbToProject);
   } catch (error) {
     console.error('loadProjects exception:', error);
-    return [getDefaultProject()];
+    return [];
   }
 }
 
@@ -103,10 +103,6 @@ export async function updateProject(project: Project): Promise<void> {
 export async function deleteProject(id: string): Promise<void> {
   const { error } = await supabase.from('projects').delete().eq('id', id);
   if (error) throw error;
-}
-
-function getDefaultProject(): Project {
-  return { id: 'default', name: 'Welcome Project', schema: getDefaultSchema(), messages: [], updatedAt: Date.now(), createdAt: Date.now() };
 }
 
 function getDefaultSchema(): AppSchema {

@@ -31,12 +31,27 @@ const SHARED_PROVIDERS: Record<string, { keyEnv: string; baseUrl: string; model:
   openrouter_demo: {
     keyEnv: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'qwen/qwen3-coder:free',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+  },
+  openrouter_lotus: {
+    keyEnv: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: '@preset/lotus',
+  },
+  openrouter_nemotron_ultra: {
+    keyEnv: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+  },
+  openrouter_nemotron_super: {
+    keyEnv: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'nvidia/nemotron-3-super-120b-a12b:free',
   },
   openrouter: {
     keyEnv: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'qwen/qwen3-coder:free',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   },
   groq: {
     keyEnv: 'GROQ_API_KEY',
@@ -47,6 +62,11 @@ const SHARED_PROVIDERS: Record<string, { keyEnv: string; baseUrl: string; model:
     keyEnv: 'GROQ_API_KEY',
     baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'llama-3.3-70b-versatile',
+  },
+  groq_oss_120b: {
+    keyEnv: 'GROQ_API_KEY',
+    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'openai/gpt-oss-120b',
   },
   openai: {
     keyEnv: 'OPENAI_API_KEY',
@@ -147,7 +167,7 @@ async function getUserProvider(providerId: string, authHeader: string | null): P
 }
 
 async function resolveProvider(request: ProxyRequest, authHeader: string | null) {
-  const providerId = request.provider || 'openrouter_demo';
+  const providerId = request.provider || 'groq_demo';
   const userProvider = await getUserProvider(providerId, authHeader);
   if (userProvider) {
     return {
@@ -157,7 +177,7 @@ async function resolveProvider(request: ProxyRequest, authHeader: string | null)
     };
   }
 
-  const shared = SHARED_PROVIDERS[providerId] || SHARED_PROVIDERS.openrouter_demo;
+  const shared = SHARED_PROVIDERS[providerId] || SHARED_PROVIDERS.groq_demo;
   const apiKey = Deno.env.get(shared.keyEnv);
   if (!apiKey) {
     throw new Error(`Server provider key is not configured. Set ${shared.keyEnv} in Supabase Edge Function secrets.`);

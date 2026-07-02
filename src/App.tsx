@@ -11,6 +11,7 @@ import {
   Github,
   KeyRound,
   LayoutTemplate,
+  Menu,
   Moon,
   MoreHorizontal,
   Play,
@@ -24,15 +25,19 @@ import {
   Trash2,
   User,
   Wand2,
+  X,
 } from 'lucide-react';
 import type { AppSchema } from '@/lib/builder/appSchema';
 import { createEmptySchema } from '@/lib/builder/appSchema';
+import { starterTemplates } from '@/lib/templates/templates';
+import type { StarterTemplate } from '@/lib/templates/templates';
 import lotusFlower from '@/assets/lotus-flower.png';
 import lotusLogo from '@/assets/lotus-logo.png';
 import './App.css';
 
 type ScreenName = 'home' | 'projects' | 'preview' | 'settings';
-type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys';
+type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys' | 'newProject';
+type DemoModelId = 'groq_demo' | 'groq_oss_120b' | 'openrouter_nemotron_super';
 
 type ChatMessage = {
   id: string;
@@ -51,15 +56,62 @@ type LocalProject = {
 
 const screens: ScreenName[] = ['home', 'projects', 'preview', 'settings'];
 const hasSupabaseEnv = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+const assetBase = import.meta.env.BASE_URL;
+const landingLinks = ['University', 'About', 'Pricing', 'Privacy', 'Terms', 'Contact', 'Sign In'];
+const demoModels: Array<{ id: DemoModelId; label: string; detail: string }> = [
+  { id: 'groq_demo', label: 'Groq', detail: '70B' },
+  { id: 'groq_oss_120b', label: 'OSS', detail: '120B' },
+  { id: 'openrouter_nemotron_super', label: 'Super', detail: 'Free' },
+];
+const lotusAgents = [
+  {
+    icon: Wand2,
+    title: 'Builder Agent',
+    detail: 'Turns an app idea into a complete mobile UI.',
+    tag: 'Build',
+    prompt: 'Build a polished mobile app from this concept. Include a home screen, one core workflow, useful empty states, and a bottom navigation.',
+  },
+  {
+    icon: Shield,
+    title: 'QA Agent',
+    detail: 'Hardens layout, accessibility, and missing states.',
+    tag: 'Audit',
+    prompt: 'Audit and improve the current app schema for accessibility, layout stability, missing states, labels, and tappable controls. Return the corrected schema.',
+  },
+  {
+    icon: Database,
+    title: 'Supabase Agent',
+    detail: 'Adds auth, storage, and saved user data screens.',
+    tag: 'Data',
+    prompt: 'Add real Supabase-ready product behavior to this app: profile, saved records, settings, loading states, and database-backed language in the UI.',
+  },
+  {
+    icon: Github,
+    title: 'Import Agent',
+    detail: 'Shapes GitHub projects into LOTUS screens.',
+    tag: 'Import',
+    prompt: 'Convert a GitHub-imported app idea into a LOTUS mobile interface with project overview, files, activity, and deploy status screens.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Launch Agent',
+    detail: 'Creates client-ready demo and monetization flows.',
+    tag: 'Launch',
+    prompt: 'Turn the current app into a client-ready launch demo with onboarding, pricing or upgrade moments, support states, and polished conversion copy.',
+  },
+];
 
 function App() {
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [landingMenuOpen, setLandingMenuOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState<ScreenName>('home');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPopoverOpen, setPopoverOpen] = useState(false);
   const [openSheet, setOpenSheet] = useState<SheetName | null>(null);
-  const [projects, setProjects] = useState<LocalProject[]>(() => [makeProject('Travel Planner')]);
+  const [templateCreatesNewProject, setTemplateCreatesNewProject] = useState(false);
+  const [projects, setProjects] = useState<LocalProject[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [projectSearch, setProjectSearch] = useState('');
   const [lightMode, setLightMode] = useState(true);
@@ -77,11 +129,13 @@ function App() {
   const [providerModel, setProviderModel] = useState('google/gemini-2.0-flash-exp:free');
   const [providerKey, setProviderKey] = useState('');
   const [providerStatus, setProviderStatus] = useState('');
+  const [chatModelId, setChatModelId] = useState<DemoModelId>('groq_demo');
   const [previewModule, setPreviewModule] = useState<null | { LivePreview: (props: { schema: AppSchema }) => ReactElement }>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0] ?? makeProject('New App');
+  const currentProject = projects.find((project) => project.id === currentProjectId) ?? projects[0] ?? null;
+  const workingProject = currentProject ?? makeProject('New App');
   const LivePreview = previewModule?.LivePreview;
   const filteredProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase();
@@ -105,7 +159,7 @@ function App() {
         setSessionStatus('Guest - Supabase');
         await syncStore((store) => store.setCurrentUser(user));
         await migrateLegacyApiKeys(user.id);
-        const [{ loadUserProjects, saveProject }] = await Promise.all([import('@/lib/supabase/projectStorage')]);
+        const [{ loadUserProjects }] = await Promise.all([import('@/lib/supabase/projectStorage')]);
         const remote = await loadUserProjects(user.id);
         if (cancelled) return;
         if (remote.length > 0) {
@@ -123,13 +177,11 @@ function App() {
             if (hydrated[0]) store.setCurrentProject({ ...hydrated[0], history: [] });
           });
         } else {
-          const seed = makeProject('Travel Planner');
-          setProjects([seed]);
-          setCurrentProjectId(seed.id);
-          await saveProject(user.id, { id: seed.id, name: seed.name, schema: seed.schema });
+          setProjects([]);
+          setCurrentProjectId(null);
           await syncStore((store) => {
             store.setCurrentUser(user);
-            store.setCurrentProject({ ...seed, history: [] });
+            store.clearProject();
           });
         }
       })
@@ -156,6 +208,15 @@ function App() {
     };
   }, [activeScreen, previewError, previewModule]);
 
+  useEffect(() => {
+    if (!landingMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLandingMenuOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [landingMenuOpen]);
+
   const go = (screen: ScreenName) => {
     setPopoverOpen(false);
     setOpenSheet(null);
@@ -165,6 +226,11 @@ function App() {
   const openBottomSheet = (sheet: SheetName) => {
     setPopoverOpen(false);
     setOpenSheet(sheet);
+  };
+
+  const openTemplates = (createsNewProject: boolean) => {
+    setTemplateCreatesNewProject(createsNewProject);
+    openBottomSheet('templates');
   };
 
   const persistProject = async (project: LocalProject) => {
@@ -277,6 +343,42 @@ function App() {
     });
   };
 
+  const useTemplate = async (template: StarterTemplate) => {
+    const schema = cloneSchema(template.schema);
+    const now = Date.now();
+    const targetProject: LocalProject =
+      templateCreatesNewProject || !currentProject
+        ? {
+            id: crypto.randomUUID(),
+            name: schema.name || template.name,
+            schema,
+            createdAt: now,
+            updatedAt: now,
+          }
+        : {
+            ...currentProject,
+            name: schema.name || currentProject.name,
+            schema,
+            updatedAt: now,
+          };
+
+    setProjects((current) =>
+      current.some((project) => project.id === targetProject.id)
+        ? current.map((project) => (project.id === targetProject.id ? targetProject : project))
+        : [targetProject, ...current],
+    );
+    setCurrentProjectId(targetProject.id);
+    setOpenSheet(null);
+    setPopoverOpen(false);
+    setActiveScreen('preview');
+    await persistProject(targetProject);
+    await syncStore((store) => {
+      store.setCurrentProject({ ...targetProject, history: [] });
+      store.replaceSchema(schema);
+      void store.saveCurrentProject();
+    });
+  };
+
   const openProject = (id: string) => {
     setCurrentProjectId(id);
     go('home');
@@ -299,20 +401,28 @@ function App() {
   };
 
   const deleteProject = (id: string) => {
-    if (projects.length <= 1 || !window.confirm('Delete this project?')) return;
+    if (!window.confirm('Delete this project?')) return;
     setProjects((current) => current.filter((project) => project.id !== id));
     if (currentProjectId === id) setCurrentProjectId(projects.find((project) => project.id !== id)?.id ?? null);
     void deleteStoredProject(id);
     void syncStore((store) => store.deleteProject(id));
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const content = input.trim();
+  const selectChatModel = (id: DemoModelId) => {
+    setChatModelId(id);
+    void syncStore((store) => {
+      store.setProviderId(id);
+      store.setProvider(id);
+    });
+  };
+
+  const generateFromPrompt = async (content: string) => {
     if (!content || isLoading) return;
 
     setInput('');
     setPopoverOpen(false);
+    setOpenSheet(null);
+    setActiveScreen('home');
     setIsLoading(true);
     const userMessage: ChatMessage = { id: crypto.randomUUID(), role: 'user', content };
     const assistantId = crypto.randomUUID();
@@ -320,17 +430,29 @@ function App() {
 
     try {
       await withStore(async (store) => {
-        store.setCurrentProject({ ...currentProject, history: [] });
+        store.setProviderId(chatModelId);
+        store.setProvider(chatModelId);
+        store.setCurrentProject({ ...workingProject, history: [] });
         await store.sendMessage(content);
         const state = store;
         const latestAssistant = state.messages.slice().reverse().find((message) => message.role === 'assistant');
+        const updatedProject = {
+          ...workingProject,
+          schema: state.schema,
+          updatedAt: Date.now(),
+          name: state.schema.name || workingProject.name,
+        };
         setProjects((current) =>
-          current.map((project) =>
-            project.id === currentProject.id
-              ? { ...project, schema: state.schema, updatedAt: Date.now(), name: state.schema.name || project.name }
-              : project,
-          ),
+          current.some((project) => project.id === updatedProject.id)
+            ? current.map((project) =>
+                project.id === updatedProject.id
+                  ? { ...project, schema: state.schema, updatedAt: updatedProject.updatedAt, name: updatedProject.name }
+                  : project,
+              )
+            : [updatedProject, ...current],
         );
+        setCurrentProjectId(updatedProject.id);
+        await persistProject(updatedProject);
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantId
@@ -356,22 +478,28 @@ function App() {
     }
   };
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await generateFromPrompt(input.trim());
+  };
+
+  const runAgent = (prompt: string) => {
+    void generateFromPrompt(prompt);
+  };
+
   const resetAppData = () => {
     if (!window.confirm('Reset local app data?')) return;
-    const project = makeProject('New App');
-    setProjects([project]);
-    setCurrentProjectId(project.id);
+    setProjects([]);
+    setCurrentProjectId(null);
     setMessages([]);
     setProjectSearch('');
-    void persistProject(project);
     void syncStore((store) => {
       store.resetStore();
-      store.setCurrentProject({ ...project, history: [] });
     });
   };
 
-  return (
-    <main className={`lotus-page ${lightMode ? '' : 'dark-mode-page'}`} onClick={() => setPopoverOpen(false)}>
+  const builderExperience = (
+    <div className={`lotus-page ${lightMode ? '' : 'dark-mode-page'}`} onClick={() => setPopoverOpen(false)}>
       <div className={`lotus-app ${lightMode ? '' : 'dark-mode'}`} data-active-screen={activeScreen}>
         <section
           id="home"
@@ -393,13 +521,7 @@ function App() {
           <div className="home-hero">
             <img src={lotusLogo} alt="LOTUS" />
           </div>
-          <div className="message-thread" aria-live="polite">
-            {messages.map((message) => (
-              <div key={message.id} className={`message-bubble ${message.role}`}>
-                {message.isLoading ? <span className="typing-dot" /> : message.content}
-              </div>
-            ))}
-          </div>
+          <ChatLog messages={messages} />
         </section>
 
         <section
@@ -413,7 +535,7 @@ function App() {
                 <Github aria-hidden="true" />
                 Import
               </button>
-              <button className="newproj" type="button" onClick={() => createProject()}>
+              <button className="newproj" type="button" onClick={() => openBottomSheet('newProject')}>
                 <Plus aria-hidden="true" />
                 New
               </button>
@@ -434,6 +556,13 @@ function App() {
             </button>
           </div>
           <div className="projlist">
+            {filteredProjects.length === 0 && (
+              <div className="empty-projects">
+                <Folder aria-hidden="true" />
+                <b>No projects yet</b>
+                <span>Create a project or import one from GitHub.</span>
+              </div>
+            )}
             {filteredProjects.map((project, index) => (
               <article className="projcard" key={project.id}>
                 <button type="button" className={`thumb t-${index % 4}`} onClick={() => openProject(project.id)} aria-label={`Open ${project.name}`}>
@@ -443,7 +572,7 @@ function App() {
                 </button>
                 <button type="button" className="meta" onClick={() => openProject(project.id)}>
                   <b>{project.name}</b>
-                  <span>{project.id === currentProject.id ? 'Current project' : 'Ready to build'}</span>
+                  <span>{currentProject && project.id === currentProject.id ? 'Current project' : 'Saved in Supabase'}</span>
                 </button>
                 <button type="button" className="dots" aria-label={`Rename ${project.name}`} onClick={() => renameProject(project.id)}>
                   <MoreHorizontal aria-hidden="true" />
@@ -474,7 +603,7 @@ function App() {
           </div>
           {LivePreview ? (
             <div className="live-preview-wrap">
-              <LivePreview schema={currentProject.schema} />
+              <LivePreview schema={workingProject.schema} />
             </div>
           ) : (
             <div className="preview-loading">
@@ -485,7 +614,7 @@ function App() {
           <div className="infocard">
             <CirclePlay aria-hidden="true" />
             <div>
-              <b>{currentProject.name}</b>
+              <b>{workingProject.name}</b>
               <span>{previewModule ? 'Rendering with the live schema renderer.' : previewError || 'Starting renderer...'}</span>
             </div>
           </div>
@@ -569,8 +698,21 @@ function App() {
         />
 
         <div className={`popover ${isPopoverOpen ? 'show' : ''}`} onClick={(event) => event.stopPropagation()}>
+          <div className="pop-models" aria-label="Chat model">
+            {demoModels.map((model) => (
+              <button
+                key={model.id}
+                type="button"
+                className={`model-chip ${chatModelId === model.id ? 'active' : ''}`}
+                onClick={() => selectChatModel(model.id)}
+              >
+                <span>{model.label}</span>
+                <small>{model.detail}</small>
+              </button>
+            ))}
+          </div>
           <PopoverButton icon={<Sparkles />} title="Connectors" detail="Connect APIs & services" onClick={() => openBottomSheet('connectors')} />
-          <PopoverButton icon={<LayoutTemplate />} title="Templates" detail="Start from a template" onClick={() => openBottomSheet('templates')} />
+          <PopoverButton icon={<LayoutTemplate />} title="Templates" detail="Start from a template" onClick={() => openTemplates(false)} />
           <PopoverButton icon={<Bot />} title="Agents" detail="AI agents & skills" onClick={() => openBottomSheet('agents')} />
         </div>
 
@@ -582,16 +724,31 @@ function App() {
           <SheetRow icon={<CreditCard />} title="Payments" detail="Stripe, subscriptions, checkout" tag="1" />
           <SheetRow icon={<Shield />} title="Auth & Services" detail="OAuth, email, storage" tag="4" />
         </BottomSheet>
+        <BottomSheet name="newProject" openSheet={openSheet}>
+          <SheetRow icon={<Plus />} title="Blank Project" detail="Start with an empty LOTUS app." onClick={() => createProject()} />
+          <SheetRow icon={<LayoutTemplate />} title="Start From Template" detail="Choose a schema-backed starter app." onClick={() => openTemplates(true)} />
+        </BottomSheet>
         <BottomSheet name="templates" openSheet={openSheet}>
-          <SheetRow icon={<LayoutTemplate />} title="Landing Page" detail="Hero, features, pricing, footer" />
-          <SheetRow icon={<CreditCard />} title="E-Commerce" detail="Catalog, cart, checkout" />
-          <SheetRow icon={<Sparkles />} title="SaaS Dashboard" detail="Charts, tables, auth" />
-          <SheetRow icon={<Bot />} title="AI Chat App" detail="Streaming chat interface" />
+          <div className="template-grid">
+            {starterTemplates.map((template) => (
+              <TemplateCard key={template.id} template={template} onUse={() => void useTemplate(template)} />
+            ))}
+          </div>
         </BottomSheet>
         <BottomSheet name="agents" openSheet={openSheet}>
-          <SheetRow icon={<Wand2 />} title="Builder Agent" detail="Generates screens from prompts" tag="Active" />
-          <SheetRow icon={<Shield />} title="QA Agent" detail="Audits layout and accessibility" />
-          <SheetRow icon={<Plus />} title="Create New Agent" detail="Define role, tools, and behavior" />
+          {lotusAgents.map((agent) => {
+            const Icon = agent.icon;
+            return (
+              <SheetRow
+                key={agent.title}
+                icon={<Icon />}
+                title={agent.title}
+                detail={agent.detail}
+                tag={agent.tag}
+                onClick={() => runAgent(agent.prompt)}
+              />
+            );
+          })}
         </BottomSheet>
         <BottomSheet name="advanced" openSheet={openSheet}>
           <SheetRow icon={<Bot />} title="LOTUS Demo AI" detail="Server-managed model" tag="Default" />
@@ -679,6 +836,57 @@ function App() {
           ))}
         </nav>
       </div>
+    </div>
+  );
+
+  return (
+    <main className="landing-page">
+      <video className="landing-video" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
+        <source src={`${assetBase}lotus-hero-desktop.mp4`} type="video/mp4" media="(min-width: 768px)" />
+        <source src={`${assetBase}lotus-hero-mobile.mp4`} type="video/mp4" />
+      </video>
+
+      <header className="landing-header">
+        <button
+          className="landing-menu-button"
+          type="button"
+          aria-label={landingMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={landingMenuOpen}
+          aria-controls="landing-menu"
+          onClick={() => setLandingMenuOpen((open) => !open)}
+        >
+          <Menu aria-hidden="true" />
+          <span>Menu</span>
+        </button>
+        {landingMenuOpen && (
+          <nav id="landing-menu" className="landing-menu show">
+            <button
+              type="button"
+              className="landing-menu-action"
+              onClick={() => {
+                setLandingMenuOpen(false);
+                setBuilderOpen(true);
+              }}
+            >
+              App Builder
+            </button>
+            {landingLinks.map((label) => (
+              <a key={label} href={`#${label.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => setLandingMenuOpen(false)}>
+                {label}
+              </a>
+            ))}
+          </nav>
+        )}
+      </header>
+
+      {builderOpen && (
+        <section className="builder-modal" role="dialog" aria-modal="true" aria-label="LOTUS App Builder">
+          <button className="builder-modal-close" type="button" aria-label="Close App Builder" onClick={() => setBuilderOpen(false)}>
+            <X aria-hidden="true" />
+          </button>
+          <div className="builder-modal-body">{builderExperience}</div>
+        </section>
+      )}
     </main>
   );
 }
@@ -721,6 +929,63 @@ function ChatControls({
   );
 }
 
+function ChatLog({ messages }: { messages: ChatMessage[] }) {
+  const lastUser = messages.slice().reverse().find((message) => message.role === 'user');
+  const lastAssistant = messages.slice().reverse().find((message) => message.role === 'assistant');
+  if (!lastUser && !lastAssistant) return null;
+
+  return (
+    <section className="chat-log" aria-live="polite">
+      {lastUser && (
+        <div className="chat-log-row">
+          <span>Prompt</span>
+          <p>{lastUser.content}</p>
+        </div>
+      )}
+      {lastAssistant && (
+        <div className="chat-log-row">
+          <span>{lastAssistant.isLoading ? 'Generating' : 'Result'}</span>
+          {lastAssistant.isLoading ? (
+            <div className="typing-line" aria-label="Generating" />
+          ) : (
+            <p>{lastAssistant.content}</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TemplateCard({ template, onUse }: { template: StarterTemplate; onUse: () => void }) {
+  return (
+    <article className="template-card">
+      <TemplateThumbnail type={template.thumbnailType} />
+      <div className="template-card-body">
+        <span>{template.category}</span>
+        <b>{template.name}</b>
+        <p>{template.description}</p>
+        <button type="button" onClick={onUse}>
+          Use Template
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function TemplateThumbnail({ type }: { type: StarterTemplate['thumbnailType'] }) {
+  return (
+    <div className={`template-thumb ${type}`} aria-hidden="true">
+      <span className="tt-bar" />
+      <span className="tt-hero" />
+      <span className="tt-line one" />
+      <span className="tt-line two" />
+      <span className="tt-chip a" />
+      <span className="tt-chip b" />
+      <span className="tt-chip c" />
+    </div>
+  );
+}
+
 function PopoverButton({ icon, title, detail, onClick }: { icon: ReactElement; title: string; detail: string; onClick: () => void }) {
   return (
     <button type="button" className="pop-item" onClick={onClick}>
@@ -752,6 +1017,7 @@ function BottomSheet({ name, openSheet, children }: { name: SheetName; openSheet
     github: 'Import an existing LOTUS project from GitHub.',
     profile: 'Manage the user profile saved in Supabase.',
     apiKeys: 'Connect real AI provider keys through Supabase.',
+    newProject: 'Choose how this project should start.',
   };
 
   return (
@@ -814,6 +1080,10 @@ function makeProject(name: string): LocalProject {
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
+}
+
+function cloneSchema(schema: AppSchema): AppSchema {
+  return structuredClone(schema);
 }
 
 export default App;
