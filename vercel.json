@@ -1,24 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/university/assessment.html",
-      "destination": "/university/assessment.html"
-    },
-    {
-      "source": "/university/(.*)",
-      "destination": "/university/index.html"
-    },
-    {
-      "source": "/university",
-      "destination": "/university/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "headers": [
     {
       "source": "/assets/(.*)",
