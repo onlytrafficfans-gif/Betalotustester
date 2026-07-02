@@ -31,7 +31,6 @@ import {
   Trash2,
   User,
   Wand2,
-  X,
   Zap,
 } from 'lucide-react';
 import type { AppSchema } from '@/lib/builder/appSchema';
@@ -45,6 +44,7 @@ import './App.css';
 type ScreenName = 'home' | 'projects' | 'preview' | 'settings';
 type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys' | 'newProject';
 type DemoModelId = 'groq_demo' | 'groq_oss_120b' | 'openrouter_nemotron_super';
+type PreviewDeviceId = 'phone' | 'tablet';
 type PublicPath = '/' | '/about' | '/privacy' | '/terms' | '/subscriptions' | '/university';
 type LegalDoc = 'terms' | 'privacy';
 
@@ -139,7 +139,6 @@ const demoModels: Array<{ id: DemoModelId; label: string; detail: string }> = [
 const previewDevices = [
   { id: 'phone', label: 'iPhone 15 Pro' },
   { id: 'tablet', label: 'iPad Pro' },
-  { id: 'desktop', label: 'Desktop' },
 ] as const;
 const lotusAgents = [
   {
@@ -203,7 +202,7 @@ function App() {
   const [maxTokens, setMaxTokens] = useState(() => readStoredNumber('lotus_max_tokens', 1800));
   const [temperature, setTemperature] = useState(() => readStoredNumber('lotus_temperature', 0.7));
   const [systemPrompt, setSystemPrompt] = useState(() => readStoredString('lotus_system_prompt', ''));
-  const [previewDevice, setPreviewDevice] = useState<'phone' | 'tablet' | 'desktop'>(() => readStoredPreviewDevice());
+  const [previewDevice, setPreviewDevice] = useState<PreviewDeviceId>(() => readStoredPreviewDevice());
   const [canvasGrid, setCanvasGrid] = useState(() => readStoredBool('lotus_canvas_grid', true));
   const [autoSave, setAutoSave] = useState(() => readStoredBool('lotus_auto_save', true));
   const [defaultLocation, setDefaultLocation] = useState(() => readStoredString('lotus_default_location', 'Supabase / Lotus Projects'));
@@ -377,6 +376,16 @@ function App() {
     setBuilderOpen(false);
     if (window.location.pathname !== path) window.history.pushState({}, '', path);
     setPublicPath(path);
+  };
+
+  const returnToSplash = () => {
+    setBuilderOpen(false);
+    setLandingMenuOpen(false);
+    setActiveScreen('home');
+    setOpenSheet(null);
+    setPopoverOpen(false);
+    if (window.location.pathname !== '/') window.history.pushState({}, '', '/');
+    setPublicPath('/');
   };
 
   const openBottomSheet = (sheet: SheetName) => {
@@ -919,6 +928,7 @@ function App() {
             <SettingsRow icon={<Grid3X3 />} title="Canvas Grid" detail="Show grid in the builder preview" onClick={() => setCanvasGrid((value) => !value)} control={<span className={`toggle ${canvasGrid ? 'on' : ''}`} />} />
             <SettingsRow icon={<Moon />} title="Auto Save" detail="Automatically save your work" value={autoSave ? 'Every 30 seconds' : 'Off'} onClick={() => setAutoSave((value) => !value)} />
             <SettingsRow icon={<Folder />} title="Default Project Location" detail="Where new projects are saved" value={defaultLocation} onClick={editDefaultLocation} />
+            <SettingsRow icon={<ChevronLeft />} title="Take Me Back To Splash" detail="Leave the builder and return to the LOTUS landing screen" onClick={returnToSplash} />
           </SettingsSection>
           <SettingsSection label="Data & Account">
             <SettingsRow icon={<Cloud />} title="Back Up Projects" value={`${projects.length} project${projects.length === 1 ? '' : 's'}`} onClick={backupProjects} />
@@ -1095,12 +1105,12 @@ function App() {
   );
   const isHomeRoute = publicPath === '/';
 
+  if (builderOpen) {
+    return builderExperience;
+  }
+
   return (
     <main className={`landing-page ${isHomeRoute ? '' : 'public-page'}`}>
-      <video className="landing-video" autoPlay loop muted playsInline preload="auto" aria-hidden="true">
-        <source src={`${assetBase}lotus-home-flowing-water.mp4`} type="video/mp4" />
-      </video>
-
       <header className={`landing-header ${isHomeRoute ? '' : 'public-header'}`}>
         <button
           className="landing-menu-button"
@@ -1152,20 +1162,13 @@ function App() {
 
       {paymentToast && <div className="landing-toast" role="status">{paymentToast}</div>}
 
-      {builderOpen && (
-        <section className="builder-modal" role="dialog" aria-modal="true" aria-label="LOTUS App Builder">
-          <button className="builder-modal-close" type="button" aria-label="Close App Builder" onClick={() => setBuilderOpen(false)}>
-            <X aria-hidden="true" />
-          </button>
-          <div className="builder-modal-body">{builderExperience}</div>
-        </section>
-      )}
     </main>
   );
 }
 
 function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHome: () => void; onPayment: () => void }) {
   const legalDoc = path === '/terms' ? legalDocs.terms : path === '/privacy' ? legalDocs.privacy : null;
+  const [legalOpen, setLegalOpen] = useState(false);
 
   if (path === '/subscriptions') {
     return (
@@ -1196,20 +1199,34 @@ function PublicLandingPage({ path, onHome, onPayment }: { path: PublicPath; onHo
   }
 
   if (legalDoc) {
+    const docKind = path === '/terms' ? 'Terms' : 'Policy';
     return (
       <section className="public-route-page legal-route-page legal-about-background">
         <button className="public-brand" type="button" onClick={onHome}>LOTUS</button>
-        <article className="legal-document">
+        <article className="legal-entry-card">
+          <p className="public-kicker">{docKind}</p>
           <h1>{legalDoc.title}</h1>
-          <p className="legal-updated">Last Updated: {legalDoc.updated}</p>
-          {legalDoc.sections.map((section) => (
-            <section key={section.heading} className="legal-section">
-              <h2>{section.heading}</h2>
-              {section.body}
-            </section>
-          ))}
-          <p className="legal-copyright">© 2026 Metallic.v1. All rights reserved.</p>
+          <p className="public-lede">Review the {docKind.toLowerCase()} when you need it. The page stays calm until you open the full document.</p>
+          <button type="button" className="public-pill-button" onClick={() => setLegalOpen(true)}>
+            Show {docKind}
+          </button>
         </article>
+        {legalOpen && (
+          <section className="legal-reader" role="dialog" aria-modal="true" aria-label={legalDoc.title}>
+            <article className="legal-document">
+              <button type="button" className="legal-close" onClick={() => setLegalOpen(false)}>Close</button>
+              <h1>{legalDoc.title}</h1>
+              <p className="legal-updated">Last Updated: {legalDoc.updated}</p>
+              {legalDoc.sections.map((section) => (
+                <section key={section.heading} className="legal-section">
+                  <h2>{section.heading}</h2>
+                  {section.body}
+                </section>
+              ))}
+              <p className="legal-copyright">© 2026 Metallic.v1. All rights reserved.</p>
+            </article>
+          </section>
+        )}
       </section>
     );
   }
@@ -1520,9 +1537,9 @@ function readStoredBool(key: string, fallback: boolean): boolean {
   return value === 'true';
 }
 
-function readStoredPreviewDevice(): 'phone' | 'tablet' | 'desktop' {
+function readStoredPreviewDevice(): PreviewDeviceId {
   const value = readStoredString('lotus_preview_device', 'phone');
-  return value === 'tablet' || value === 'desktop' ? value : 'phone';
+  return value === 'tablet' ? value : 'phone';
 }
 
 function readStoredDemoModel(): DemoModelId {

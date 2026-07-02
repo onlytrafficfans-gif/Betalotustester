@@ -6,7 +6,7 @@ import type { AppSchema } from '@/lib/builder/appSchema';
 import { AppRenderer } from '@/lib/builder/appRenderer';
 import { generateExportFiles, exportToZip } from '@/lib/builder/exportGenerator';
 import { PhoneShell } from './PhoneShell';
-import { Download, ExternalLink, Laptop, PanelRightClose, RefreshCw, Smartphone, Tablet } from 'lucide-react';
+import { Download, ExternalLink, PanelRightClose, RefreshCw, Smartphone, Tablet } from 'lucide-react';
 
 interface LivePreviewProps {
   schema: AppSchema;
@@ -16,7 +16,7 @@ interface LivePreviewProps {
 export function LivePreview({ schema }: LivePreviewProps) {
   const { previewDevice, setPreviewDevice, setShowPreview, setActiveScreen, showToast } = useBuilderStore();
   const handleNavigate = useCallback((screenId: string) => { setActiveScreen(screenId); }, [setActiveScreen]);
-  const isDesktop = previewDevice === 'desktop';
+  const isDesktop = false;
 
   const handleExport = useCallback(async () => {
     try {
@@ -49,7 +49,6 @@ export function LivePreview({ schema }: LivePreviewProps) {
         <div className="mb-4 flex items-center rounded-xl border border-white/[0.07] bg-white/[0.035] p-1 shadow-[0_8px_30px_rgba(0,0,0,0.24)]">
           <PreviewButton label="Phone" active={previewDevice === 'phone'} onClick={() => setPreviewDevice('phone')} icon={<Smartphone size={15} />} />
           <PreviewButton label="Tablet" active={previewDevice === 'tablet'} onClick={() => setPreviewDevice('tablet')} icon={<Tablet size={15} />} />
-          <PreviewButton label="Desktop" active={previewDevice === 'desktop'} onClick={() => setPreviewDevice('desktop')} icon={<Laptop size={15} />} />
           <PreviewButton label="Open preview" active={false} onClick={() => setShowPreview(true)} icon={<ExternalLink size={15} />} />
         </div>
         <div className="relative flex min-h-0 w-full flex-1 justify-center" data-preview-root>
@@ -63,7 +62,6 @@ export function LivePreview({ schema }: LivePreviewProps) {
           <button type="button" className="flex items-center gap-1 transition hover:text-white/70">
             {previewDevice === 'phone' && 'iPhone 14 Pro'}
             {previewDevice === 'tablet' && 'iPad Pro'}
-            {previewDevice === 'desktop' && 'Desktop'}
           </button>
           <span className="flex-1" />
           <button type="button" onClick={handleExport} className="rounded-lg p-1.5 transition hover:bg-white/5 hover:text-lotus-300" aria-label="Download export">
