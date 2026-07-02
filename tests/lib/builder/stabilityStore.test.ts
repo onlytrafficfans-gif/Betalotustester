@@ -188,7 +188,7 @@ describe("Builder Store - Provider State", () => {
 
   it("has shared demo provider by default with no mock fallback", () => {
     const state = useBuilderStore.getState();
-    expect(state.selectedProvider).toBe("openrouter_demo");
+    expect(state.selectedProvider).toBe("groq_demo");
     expect(state.providers.some((provider) => provider.id === "mock")).toBe(false);
   });
 

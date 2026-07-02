@@ -31,12 +31,12 @@ const SHARED_PROVIDERS: Record<string, { keyEnv: string; baseUrl: string; model:
   openrouter_demo: {
     keyEnv: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'google/gemini-2.0-flash-exp:free',
+    model: 'qwen/qwen3-coder:free',
   },
   openrouter: {
     keyEnv: 'OPENROUTER_API_KEY',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'google/gemini-2.0-flash-exp:free',
+    model: 'qwen/qwen3-coder:free',
   },
   groq: {
     keyEnv: 'GROQ_API_KEY',
@@ -73,6 +73,16 @@ const SHARED_PROVIDERS: Record<string, { keyEnv: string; baseUrl: string; model:
     baseUrl: 'https://api.deepseek.com/chat/completions',
     model: 'deepseek-chat',
   },
+  kimi: {
+    keyEnv: 'KIMI_API_KEY',
+    baseUrl: 'https://api.moonshot.ai/v1/chat/completions',
+    model: 'moonshot-v1-8k',
+  },
+  kimi_demo: {
+    keyEnv: 'KIMI_API_KEY',
+    baseUrl: 'https://api.moonshot.ai/v1/chat/completions',
+    model: 'moonshot-v1-8k',
+  },
 };
 
 const ALLOWED_PROVIDER_DOMAINS = [
@@ -81,6 +91,7 @@ const ALLOWED_PROVIDER_DOMAINS = [
   'api.groq.com',
   'api.openai.com',
   'api.deepseek.com',
+  'api.moonshot.ai',
   'api.mistral.ai',
   'api.cohere.ai',
   'api.together.xyz',
@@ -111,24 +122,28 @@ function getBearerToken(authHeader: string | null) {
 }
 
 async function getUserProvider(providerId: string, authHeader: string | null): Promise<StoredProvider | null> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  const token = getBearerToken(authHeader);
-  if (!supabaseUrl || !supabaseAnonKey || !token) return null;
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const token = getBearerToken(authHeader);
+    if (!supabaseUrl || !supabaseAnonKey || !token || token === supabaseAnonKey) return null;
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: userData } = await supabase.auth.getUser(token);
-  const userId = userData?.user?.id;
-  if (!userId) return null;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const userId = userData?.user?.id;
+    if (userError || !userId) return null;
 
-  const { data, error } = await supabase.from('user_profiles').select('api_keys').eq('id', userId).single();
-  if (error || !Array.isArray(data?.api_keys)) return null;
+    const { data, error } = await supabase.from('user_profiles').select('api_keys').eq('id', userId).single();
+    if (error || !Array.isArray(data?.api_keys)) return null;
 
-  const provider = (data.api_keys as StoredProvider[]).find((item) => item.id === providerId);
-  if (!provider?.apiKey || !isAllowedProviderUrl(provider.baseUrl)) return null;
-  return provider;
+    const provider = (data.api_keys as StoredProvider[]).find((item) => item.id === providerId);
+    if (!provider?.apiKey || !isAllowedProviderUrl(provider.baseUrl)) return null;
+    return provider;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveProvider(request: ProxyRequest, authHeader: string | null) {

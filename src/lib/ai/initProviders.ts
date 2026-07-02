@@ -11,20 +11,20 @@ export async function initProviders(userId?: string): Promise<void> {
   localStorage.setItem('lotus_provider_count', String(stored.length));
 }
 
-export const SERVER_DEMO_PROVIDER_ID = 'openrouter_demo';
+export const SERVER_DEMO_PROVIDER_ID = 'groq_demo';
 
 export const defaultRegistry: AIProviderConfig[] = [
   {
     id: SERVER_DEMO_PROVIDER_ID,
-    name: 'LOTUS Demo AI',
-    model: 'google/gemini-2.0-flash-exp:free',
+    name: 'LOTUS Groq',
+    model: 'llama-3.3-70b-versatile',
     apiKey: 'server-managed',
     apiEndpoint: 'supabase-edge',
   },
   {
-    id: 'groq_demo',
-    name: 'LOTUS Groq',
-    model: 'llama-3.3-70b-versatile',
+    id: 'openrouter_demo',
+    name: 'LOTUS Qwen Coder',
+    model: 'qwen/qwen3-coder:free',
     apiKey: 'server-managed',
     apiEndpoint: 'supabase-edge',
   },
@@ -42,19 +42,34 @@ export const defaultRegistry: AIProviderConfig[] = [
     apiKey: 'server-managed',
     apiEndpoint: 'supabase-edge',
   },
+  {
+    id: 'kimi_demo',
+    name: 'LOTUS Kimi',
+    model: 'moonshot-v1-8k',
+    apiKey: 'server-managed',
+    apiEndpoint: 'supabase-edge',
+  },
 ];
 
 export const providerRegistry = {
-  getSystemPrompt() {
-    return 'You are LOTUS, an app builder. Return app schemas as JSON when changing the preview.';
-  },
   parseSchemaFromResponse(content: string) {
     const match = content.match(/```json\s*([\s\S]*?)```/i);
-    if (!match) return {};
+    const raw = match?.[1] ?? content.match(/\{[\s\S]*\}/)?.[0];
+    if (!raw) return {};
     try {
-      return JSON.parse(match[1]);
+      return JSON.parse(raw);
     } catch {
       return {};
     }
+  },
+  getSystemPrompt() {
+    return [
+      'You are LOTUS, a production mobile app builder.',
+      'Return only valid JSON. Do not use markdown, explanations, or prose.',
+      'The JSON must be an AppSchema with: name, description, screens, navigation, activeScreenId, theme, imageAssets, features.',
+      'Use only supported component types: header, text, button, input, card, list, image, avatar, badge, tabs, searchBar, carousel, chart, progress, progressRing, divider, fab, bottomNav, productGrid, categoryGrid, taskList, statsRow, sectionTitle, workoutList, cartList, summary, timer, exerciseList, rating, datePicker, select, imageGallery.',
+      'Every screen needs id, name, title, and components. Every component needs a type and props object.',
+      'Make the app concrete and complete for the user prompt, with realistic copy and multiple useful sections.',
+    ].join(' ');
   },
 };

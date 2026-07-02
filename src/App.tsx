@@ -8,6 +8,8 @@ import {
   CreditCard,
   Database,
   Folder,
+  Github,
+  KeyRound,
   LayoutTemplate,
   Moon,
   MoreHorizontal,
@@ -30,7 +32,7 @@ import lotusLogo from '@/assets/lotus-logo.png';
 import './App.css';
 
 type ScreenName = 'home' | 'projects' | 'preview' | 'settings';
-type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced';
+type SheetName = 'connectors' | 'templates' | 'agents' | 'advanced' | 'github' | 'profile' | 'apiKeys';
 
 type ChatMessage = {
   id: string;
@@ -63,6 +65,18 @@ function App() {
   const [lightMode, setLightMode] = useState(true);
   const [sessionStatus, setSessionStatus] = useState(hasSupabaseEnv ? 'Connecting' : 'Local-only');
   const [storageUserId, setStorageUserId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState('Guest');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileStatus, setProfileStatus] = useState('');
+  const [githubOwner, setGithubOwner] = useState('');
+  const [githubRepo, setGithubRepo] = useState('');
+  const [githubRef, setGithubRef] = useState('');
+  const [githubToken, setGithubToken] = useState('');
+  const [githubStatus, setGithubStatus] = useState('');
+  const [providerId, setProviderId] = useState('openrouter');
+  const [providerModel, setProviderModel] = useState('google/gemini-2.0-flash-exp:free');
+  const [providerKey, setProviderKey] = useState('');
+  const [providerStatus, setProviderStatus] = useState('');
   const [previewModule, setPreviewModule] = useState<null | { LivePreview: (props: { schema: AppSchema }) => ReactElement }>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -79,15 +93,18 @@ function App() {
     if (!hasSupabaseEnv) return;
     let cancelled = false;
     void import('@/lib/supabase/auth')
-      .then(async ({ getCurrentUser, signInAnonymously }) => {
-        const user = (await getCurrentUser()) ?? (await signInAnonymously()).user;
+      .then(async ({ getCurrentUser }) => {
+        const user = await getCurrentUser();
         if (!user || cancelled) {
-          if (!cancelled) setSessionStatus('Local-only');
+          if (!cancelled) setSessionStatus('Guest - Supabase Ready');
           return;
         }
         setStorageUserId(user.id);
+        setProfileName(user.name || 'Guest');
+        setProfileEmail(user.email || '');
         setSessionStatus('Guest - Supabase');
         await syncStore((store) => store.setCurrentUser(user));
+        await migrateLegacyApiKeys(user.id);
         const [{ loadUserProjects, saveProject }] = await Promise.all([import('@/lib/supabase/projectStorage')]);
         const remote = await loadUserProjects(user.id);
         if (cancelled) return;
@@ -125,7 +142,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (activeScreen !== 'preview' || previewModule || previewError || !hasSupabaseEnv) return;
+    if (activeScreen !== 'preview' || previewModule || previewError) return;
     let cancelled = false;
     void import('@/components/builder/LivePreview')
       .then((module) => {
@@ -160,6 +177,83 @@ function App() {
     if (!hasSupabaseEnv || !storageUserId) return;
     const { deleteProject } = await import('@/lib/supabase/projectStorage');
     await deleteProject(id).catch(() => undefined);
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!storageUserId) {
+      setProfileStatus('Connect Supabase first.');
+      return;
+    }
+    const name = profileName.trim() || 'Guest';
+    setProfileStatus('Saving...');
+    try {
+      const { updateProfile } = await import('@/lib/supabase/profileStorage');
+      await updateProfile(storageUserId, { full_name: name, email: profileEmail.trim() || null });
+      await syncStore((store) => store.setCurrentUser({ id: storageUserId, email: profileEmail.trim(), name }));
+      setProfileStatus('Profile saved to Supabase.');
+    } catch (error) {
+      setProfileStatus(error instanceof Error ? error.message : 'Profile save failed.');
+    }
+  };
+
+  const saveProviderKey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!storageUserId) {
+      setProviderStatus('Connect Supabase first.');
+      return;
+    }
+    if (!providerKey.trim()) {
+      setProviderStatus('Enter an API key.');
+      return;
+    }
+    setProviderStatus('Saving...');
+    try {
+      const { PRESET_PROVIDERS, addProvider } = await import('@/lib/ai/apiKeyStorage');
+      const preset = PRESET_PROVIDERS.find((provider) => provider.id === providerId) ?? PRESET_PROVIDERS[0];
+      await addProvider(storageUserId, {
+        ...preset,
+        model: providerModel.trim() || preset.model,
+        apiKey: providerKey.trim(),
+      });
+      await syncStore((store) => store.refreshProviders(storageUserId));
+      setProviderKey('');
+      setProviderStatus(`${preset.name} connected.`);
+    } catch (error) {
+      setProviderStatus(error instanceof Error ? error.message : 'Provider save failed.');
+    }
+  };
+
+  const importGitHubProject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const owner = githubOwner.trim();
+    const repo = githubRepo.trim();
+    if (!owner || !repo) {
+      setGithubStatus('Owner and repo are required.');
+      return;
+    }
+    setGithubStatus('Importing...');
+    try {
+      const { loadProjectFromGitHub, saveGitHubToken } = await import('@/lib/github/githubStorage');
+      if (githubToken.trim()) await saveGitHubToken(storageUserId ?? undefined, githubToken.trim());
+      const schema = (await loadProjectFromGitHub(owner, repo, githubRef.trim() || undefined)) as AppSchema;
+      const project = {
+        id: crypto.randomUUID(),
+        name: schema.name || repo,
+        schema,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setProjects((current) => [project, ...current]);
+      setCurrentProjectId(project.id);
+      await persistProject(project);
+      await syncStore((store) => store.setCurrentProject({ ...project, history: [] }));
+      setGithubStatus(`Imported ${project.name}.`);
+      setOpenSheet(null);
+      go('projects');
+    } catch (error) {
+      setGithubStatus(error instanceof Error ? error.message : 'GitHub import failed.');
+    }
   };
 
   const handleHomeTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
@@ -314,10 +408,16 @@ function App() {
         >
           <div className="pagehead">
             <h1 className="serif title">Projects</h1>
-            <button className="newproj" type="button" onClick={() => createProject()}>
-              <Plus aria-hidden="true" />
-              New
-            </button>
+            <div className="page-actions">
+              <button className="newproj ghost" type="button" onClick={() => openBottomSheet('github')}>
+                <Github aria-hidden="true" />
+                Import
+              </button>
+              <button className="newproj" type="button" onClick={() => createProject()}>
+                <Plus aria-hidden="true" />
+                New
+              </button>
+            </div>
           </div>
           <div className="searchrow">
             <div className="searchbar">
@@ -377,13 +477,16 @@ function App() {
               <LivePreview schema={currentProject.schema} />
             </div>
           ) : (
-            <PreviewEmptyState />
+            <div className="preview-loading">
+              <CirclePlay aria-hidden="true" />
+              <span>{previewError || 'Loading live preview...'}</span>
+            </div>
           )}
           <div className="infocard">
             <CirclePlay aria-hidden="true" />
             <div>
               <b>{currentProject.name}</b>
-              <span>{previewModule ? 'Rendering with the live schema renderer.' : previewError || 'Schema preview loads when Supabase env is available.'}</span>
+              <span>{previewModule ? 'Rendering with the live schema renderer.' : previewError || 'Starting renderer...'}</span>
             </div>
           </div>
         </section>
@@ -410,18 +513,18 @@ function App() {
                 <User aria-hidden="true" />
               </div>
               <div className="pt">
-                <b>Guest</b>
-              <span>{sessionStatus}</span>
+                <b>{profileName || 'Guest'}</b>
+                <span>{profileEmail || sessionStatus}</span>
               </div>
-              <span className="tag">Beta</span>
+              <button type="button" className="tag tag-button" onClick={() => setOpenSheet('profile')}>Edit</button>
             </div>
           </SettingsSection>
           <SettingsSection label="AI & Models">
-            <button type="button" className="settings-row" onClick={() => setOpenSheet('advanced')}>
-              <Bot aria-hidden="true" />
+            <button type="button" className="settings-row" onClick={() => setOpenSheet('apiKeys')}>
+              <KeyRound aria-hidden="true" />
               <span className="rt">
-                <b>Advanced model settings</b>
-                <small>Detailed model controls stay in a separate sheet.</small>
+                <b>API key connection</b>
+                <small>Save provider keys to your Supabase profile.</small>
               </span>
               <span className="chev">›</span>
             </button>
@@ -473,8 +576,9 @@ function App() {
 
         <button type="button" className={`scrim ${openSheet ? 'show' : ''}`} aria-label="Close sheet" onClick={() => setOpenSheet(null)} />
         <BottomSheet name="connectors" openSheet={openSheet}>
-          <SheetRow icon={<Database />} title="Database" detail="Supabase, Firebase, Postgres" tag="3" />
-          <SheetRow icon={<Code2 />} title="APIs" detail="REST, GraphQL, Webhooks" tag="3" />
+          <SheetRow icon={<Database />} title="Supabase Storage" detail={hasSupabaseEnv ? 'Project storage is active' : 'Add Supabase env vars to activate'} tag={hasSupabaseEnv ? 'On' : 'Env'} />
+          <SheetRow icon={<Github />} title="GitHub Import" detail="Import lotus-app.json from a repository" onClick={() => setOpenSheet('github')} />
+          <SheetRow icon={<Code2 />} title="API Keys" detail="Connect OpenRouter, OpenAI, Groq, Gemini" onClick={() => setOpenSheet('apiKeys')} />
           <SheetRow icon={<CreditCard />} title="Payments" detail="Stripe, subscriptions, checkout" tag="1" />
           <SheetRow icon={<Shield />} title="Auth & Services" detail="OAuth, email, storage" tag="4" />
         </BottomSheet>
@@ -492,6 +596,69 @@ function App() {
         <BottomSheet name="advanced" openSheet={openSheet}>
           <SheetRow icon={<Bot />} title="LOTUS Demo AI" detail="Server-managed model" tag="Default" />
           <SheetRow icon={<Sparkles />} title="Model Routing" detail="Available after Supabase env is configured" />
+        </BottomSheet>
+        <BottomSheet name="github" openSheet={openSheet}>
+          <form className="sheet-form" onSubmit={importGitHubProject}>
+            <label>
+              GitHub token
+              <input value={githubToken} onChange={(event) => setGithubToken(event.target.value)} type="password" autoComplete="off" />
+            </label>
+            <div className="form-grid">
+              <label>
+                Owner
+                <input value={githubOwner} onChange={(event) => setGithubOwner(event.target.value)} />
+              </label>
+              <label>
+                Repo
+                <input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} />
+              </label>
+            </div>
+            <label>
+              Branch or SHA
+              <input value={githubRef} onChange={(event) => setGithubRef(event.target.value)} />
+            </label>
+            <button type="submit" className="sheet-submit">Import Project</button>
+            {githubStatus && <div className="form-status">{githubStatus}</div>}
+          </form>
+        </BottomSheet>
+        <BottomSheet name="profile" openSheet={openSheet}>
+          <form className="sheet-form" onSubmit={saveProfile}>
+            <label>
+              Display name
+              <input value={profileName} onChange={(event) => setProfileName(event.target.value)} />
+            </label>
+            <label>
+              Email
+              <input value={profileEmail} onChange={(event) => setProfileEmail(event.target.value)} type="email" />
+            </label>
+            <button type="submit" className="sheet-submit">Save Profile</button>
+            {profileStatus && <div className="form-status">{profileStatus}</div>}
+          </form>
+        </BottomSheet>
+        <BottomSheet name="apiKeys" openSheet={openSheet}>
+          <form className="sheet-form" onSubmit={saveProviderKey}>
+            <label>
+              Provider
+              <select value={providerId} onChange={(event) => setProviderId(event.target.value)}>
+                <option value="openrouter">OpenRouter</option>
+                <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="groq">Groq</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+            </label>
+            <label>
+              Model
+              <input value={providerModel} onChange={(event) => setProviderModel(event.target.value)} />
+            </label>
+            <label>
+              API key
+              <input value={providerKey} onChange={(event) => setProviderKey(event.target.value)} type="password" autoComplete="off" />
+            </label>
+            <button type="submit" className="sheet-submit">Connect API Key</button>
+            {providerStatus && <div className="form-status">{providerStatus}</div>}
+          </form>
         </BottomSheet>
 
         <nav id="nav" aria-label="Primary">
@@ -554,31 +721,6 @@ function ChatControls({
   );
 }
 
-function PreviewEmptyState() {
-  return (
-    <div className="phone">
-      <div className="phone-screen">
-        <div className="notch" />
-        <div className="ps-top">
-          <Folder aria-hidden="true" />
-          <Settings aria-hidden="true" />
-        </div>
-        <div className="ps-hello">Hello, Explorer</div>
-        <div className="ps-sub">Discover your next adventure</div>
-        <div className="ps-search">Search destinations...</div>
-        <div className="ps-row">Popular Destinations <span>See all</span></div>
-        <div className="ps-cards">
-          <div className="ps-card ps-c1"><i>Switzerland</i><em>From $1200</em></div>
-          <div className="ps-card ps-c2"><i>Japan</i><em>From $980</em></div>
-          <div className="ps-card ps-c3"><i>Bali</i><em>From $750</em></div>
-        </div>
-        <div className="ps-cats">Categories</div>
-        <div className="ps-nav"><span>Home</span><span>Explore</span><span>Trips</span><span>Profile</span></div>
-      </div>
-    </div>
-  );
-}
-
 function PopoverButton({ icon, title, detail, onClick }: { icon: ReactElement; title: string; detail: string; onClick: () => void }) {
   return (
     <button type="button" className="pop-item" onClick={onClick}>
@@ -607,6 +749,9 @@ function BottomSheet({ name, openSheet, children }: { name: SheetName; openSheet
     templates: 'Choose a starting point for your app.',
     agents: 'Create AI agents to assist your app.',
     advanced: 'Model controls stay out of the main settings surface.',
+    github: 'Import an existing LOTUS project from GitHub.',
+    profile: 'Manage the user profile saved in Supabase.',
+    apiKeys: 'Connect real AI provider keys through Supabase.',
   };
 
   return (
@@ -619,9 +764,9 @@ function BottomSheet({ name, openSheet, children }: { name: SheetName; openSheet
   );
 }
 
-function SheetRow({ icon, title, detail, tag }: { icon: ReactElement; title: string; detail: string; tag?: string }) {
+function SheetRow({ icon, title, detail, tag, onClick }: { icon: ReactElement; title: string; detail: string; tag?: string; onClick?: () => void }) {
   return (
-    <button type="button" className="sheet-row">
+    <button type="button" className="sheet-row" onClick={onClick}>
       {icon}
       <span className="rt">
         <b>{title}</b>
@@ -641,6 +786,18 @@ async function withStore<T>(callback: (store: Awaited<ReturnType<typeof importSt
 async function syncStore<T>(callback: (store: Awaited<ReturnType<typeof importStore>>) => T | Promise<T>): Promise<void> {
   if (!hasSupabaseEnv) return;
   await withStore(callback).catch(() => undefined);
+}
+
+async function migrateLegacyApiKeys(userId: string): Promise<void> {
+  if (!userId || typeof localStorage === 'undefined') return;
+  const { PRESET_PROVIDERS, addProvider } = await import('@/lib/ai/apiKeyStorage');
+  await Promise.all(
+    PRESET_PROVIDERS.map(async (preset) => {
+      const apiKey = localStorage.getItem(`lotus_api_key_${preset.id}`);
+      if (!apiKey) return;
+      await addProvider(userId, { ...preset, apiKey }).catch(() => undefined);
+    }),
+  );
 }
 
 async function importStore() {

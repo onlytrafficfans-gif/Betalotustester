@@ -395,6 +395,18 @@
   box-shadow: 0 7px 16px rgba(143, 98, 16, 0.2);
 }
 
+.page-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.newproj.ghost {
+  border: 1px solid var(--line);
+  background: #fdf7ee;
+  color: var(--gold);
+  box-shadow: none;
+}
+
 .newproj svg {
   width: 18px;
   height: 18px;
@@ -723,7 +735,7 @@
 
 .live-preview-wrap {
   width: min(318px, calc(100% - 42px));
-  height: min(590px, calc(100dvh - 240px));
+  height: min(625px, calc(100dvh - 205px));
   min-height: 420px;
   margin: 0 auto 16px;
   overflow: hidden;
@@ -731,6 +743,26 @@
   border-radius: 34px;
   background: #fff;
   box-shadow: 0 18px 42px rgba(63, 45, 15, 0.2);
+}
+
+.preview-loading {
+  display: flex;
+  width: min(318px, calc(100% - 42px));
+  min-height: 420px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto 16px;
+  border: 1px solid rgba(169, 118, 27, 0.2);
+  border-radius: 30px;
+  background: #fdf7ee;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.preview-loading svg {
+  width: 24px;
+  height: 24px;
 }
 
 .infocard {
@@ -1005,6 +1037,68 @@
   font-size: 13px;
 }
 
+.sheet-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.sheet-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sheet-form input,
+.sheet-form select {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fdf7ee;
+  color: var(--ink);
+  font-size: 15px;
+  padding: 0 13px;
+  outline: none;
+}
+
+.sheet-form input:focus,
+.sheet-form select:focus {
+  border-color: rgba(169, 118, 27, 0.55);
+  box-shadow: 0 0 0 3px rgba(169, 118, 27, 0.12);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.sheet-submit {
+  height: 46px;
+  border: none;
+  border-radius: 23px;
+  background: var(--gold);
+  color: #fff8ed;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.form-status {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(169, 118, 27, 0.08);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 10px 12px;
+}
+
 .tag {
   display: inline-block;
   border-radius: 999px;
@@ -1013,6 +1107,11 @@
   font-size: 11px;
   font-weight: 700;
   padding: 3px 10px;
+}
+
+.tag-button {
+  border: none;
+  cursor: pointer;
 }
 
 .chev {

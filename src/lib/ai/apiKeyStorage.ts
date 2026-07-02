@@ -12,12 +12,13 @@ export interface StoredProvider {
 }
 
 export const PRESET_PROVIDERS: Omit<StoredProvider, 'apiKey'>[] = [
-  { id: 'openrouter', name: 'OpenRouter (Free)', baseUrl: 'https://openrouter.ai/api/v1/chat/completions', model: 'google/gemini-2.0-flash-exp:free', models: ['google/gemini-2.0-flash-exp:free', 'meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat:free', 'mistralai/mistral-7b-instruct:free', 'qwen/qwen2.5-7b-instruct:free'] },
+  { id: 'openrouter', name: 'OpenRouter (Qwen Coder Free)', baseUrl: 'https://openrouter.ai/api/v1/chat/completions', model: 'qwen/qwen3-coder:free', models: ['qwen/qwen3-coder:free', 'google/gemini-2.0-flash-exp:free', 'meta-llama/llama-3.3-70b-instruct:free', 'deepseek/deepseek-chat:free', 'mistralai/mistral-7b-instruct:free', 'qwen/qwen2.5-7b-instruct:free'] },
   { id: 'gemini', name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.0-flash', models: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'] },
   { id: 'groq', name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile', models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'] },
   { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
   { id: 'anthropic', name: 'Anthropic', baseUrl: 'https://api.anthropic.com/v1/messages', model: 'claude-3-5-sonnet-20241022', models: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'] },
   { id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', models: ['deepseek-chat', 'deepseek-reasoner'] },
+  { id: 'kimi', name: 'Kimi', baseUrl: 'https://api.moonshot.ai/v1/chat/completions', model: 'moonshot-v1-8k', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
   { id: 'custom', name: 'Custom', baseUrl: 'https://api.example.com/v1/chat/completions', model: 'default', models: ['default'] },
 ];
 
@@ -34,6 +35,7 @@ export const ALLOWED_PROVIDER_DOMAINS: readonly string[] = [
   'api.openai.com',
   'api.anthropic.com',
   'api.deepseek.com',
+  'api.moonshot.ai',
   'api.mistral.ai',
   'api.cohere.ai',
   'api.together.xyz',
