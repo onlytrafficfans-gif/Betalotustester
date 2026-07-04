@@ -6,6 +6,17 @@ import { detectAppType, buildAppTypeContext, type AppType } from './appTypeDetec
 export type AIProvider = 'local' | 'cloud';
 export type BuilderMode = 'general' | 'ui-designer' | 'code-builder' | 'architect' | 'debug';
 
+export const FREE_CLOUD_MODELS = [
+  { id: 'meta-llama/llama-2-70b-chat', name: 'Llama 2 70B' },
+  { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B' },
+  { id: 'mistralai/mistral-8x7b-instruct', name: 'Mistral 8x7B' },
+  { id: 'neural-chat-7b-v3', name: 'Neural Chat 7B' },
+  { id: 'openchat-3.5', name: 'OpenChat 3.5' },
+  { id: 'teknium/openhermes-2.5-mistral-7b', name: 'OpenHermes 2.5' },
+  { id: 'toppy-m-7b', name: 'Toppy M 7B' },
+  { id: 'dolphin-2.6-mixtral-8x7b', name: 'Dolphin 2.6' }
+];
+
 export interface AIGenerationRequest {
   prompt: string;
   projectContext?: {
@@ -15,6 +26,7 @@ export interface AIGenerationRequest {
     previousMessages?: string[];
   };
   mode?: BuilderMode;
+  model?: string;
 }
 
 export interface AIGenerationResponse {
@@ -36,12 +48,7 @@ export interface GeneratorStatus {
  * Detect which provider to use based on environment
  */
 function detectProvider(): AIProvider {
-  if (typeof window === 'undefined') return 'cloud';
-
-  const hostname = window.location.hostname;
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-
-  return isLocalhost ? 'local' : 'cloud';
+  return 'cloud';
 }
 
 /**
@@ -71,23 +78,12 @@ export function getProviderStatus(): GeneratorStatus {
  * Generate app using universal AI
  */
 export async function generateApp(request: AIGenerationRequest): Promise<AIGenerationResponse> {
-  const provider = detectProvider();
   const appType = request.projectContext?.appType || detectAppType(request.prompt);
 
   try {
-    if (provider === 'local') {
-      return await generateWithLocalAI(request, appType);
-    } else {
-      return await generateWithCloudAI(request, appType);
-    }
+    return await generateWithCloudAI(request, appType);
   } catch (error) {
-    console.error('Generation failed:', error);
-    // If local fails, try cloud; but never fall back from cloud to local
-    if (provider === 'local') {
-      console.error('Local AI failed, attempting cloud fallback...');
-      return generateWithCloudAI(request, appType);
-    }
-    // Cloud failed - don't try local fallback
+    console.error('Cloud AI failed:', error);
     throw error;
   }
 }
@@ -154,6 +150,8 @@ async function generateWithCloudAI(
       ? `Project: ${request.projectContext.name || 'Untitled'}\n${context}`
       : context;
 
+    const model = request.model || FREE_CLOUD_MODELS[0].id;
+
     const response = await fetch('/api/ai/generate', {
       method: 'POST',
       headers: {
@@ -163,7 +161,8 @@ async function generateWithCloudAI(
         prompt: request.prompt,
         appType,
         projectContext,
-        mode: request.mode || 'general'
+        mode: request.mode || 'general',
+        model
       })
     });
 

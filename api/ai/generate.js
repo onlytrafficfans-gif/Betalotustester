@@ -1,16 +1,30 @@
 // Lotus Builder - Universal App Generator
 // Secure OpenRouter API endpoint (server-side only)
 
+const AVAILABLE_MODELS = {
+  'meta-llama/llama-2-70b-chat': 'Llama 2 70B',
+  'mistralai/mistral-7b-instruct': 'Mistral 7B',
+  'mistralai/mistral-8x7b-instruct': 'Mistral 8x7B',
+  'neural-chat-7b-v3': 'Neural Chat 7B',
+  'openchat-3.5': 'OpenChat 3.5',
+  'teknium/openhermes-2.5-mistral-7b': 'OpenHermes 2.5',
+  'toppy-m-7b': 'Toppy M 7B',
+  'dolphin-2.6-mixtral-8x7b': 'Dolphin 2.6'
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { prompt, appType, projectContext, mode = 'general' } = req.body;
+  const { prompt, appType, projectContext, mode = 'general', model } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'Prompt is required' });
   }
+
+  const selectedModel = model || 'meta-llama/llama-2-70b-chat';
+  console.log('[API] Using model:', selectedModel);
 
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   console.log('[API] OpenRouter Key Present:', !!openRouterKey);
@@ -37,7 +51,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3-235b-a22b:free',
+        model: selectedModel,
         messages: [
           {
             role: 'system',
@@ -70,6 +84,7 @@ export default async function handler(req, res) {
       success: true,
       content,
       appType: appType || 'custom',
+      model: selectedModel,
       timestamp: new Date().toISOString()
     });
 
@@ -84,36 +99,65 @@ export default async function handler(req, res) {
 
 // Build context-aware system prompt
 function buildSystemPrompt(mode, appType, projectContext) {
-  const basePrompt = `You are Lotus Builder, a versatile AI application architect and product builder. Your job is to help users create many kinds of apps, websites, dashboards, tools, portals, and digital products.
+  const basePrompt = `You are Lotus Builder, creating beautiful mobile-first web apps.
 
-You are not limited to one industry.
+CRITICAL: Every app must:
+1. Fill 100% viewport (no scrollbars unless content naturally needs scrolling)
+2. Use polished, modern UI components
+3. Include complete layouts: header/nav, content section, footer/actions
+4. Use beautiful color schemes and typography
+5. Include real sample data and interactions
+6. Be fully responsive mobile-first design
 
-For every user request, determine the best product type, user experience, layout, and core functionality.
+HTML/CSS Structure (REQUIRED):
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .app-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(...);
+    }
+    .header { padding: 16px; ... }
+    .content { flex: 1; overflow-y: auto; padding: 16px; }
+    .footer { padding: 16px; border-top: 1px solid ...; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="app-container">
+      <!-- Header/Nav -->
+      <!-- Content (scrollable if needed) -->
+      <!-- Footer/Actions -->
+    </div>
+  </div>
+</body>
+</html>
+\`\`\`
 
-When building, prioritize:
-- clean UI
-- working structure
-- mobile-friendly design
-- realistic app flows
-- clear navigation
-- useful starter content
-- polished visual direction
-- simple maintainable code
+Generate polished, beautiful apps with:
+- Clean typography and spacing
+- Thoughtful color palettes (not defaults)
+- Real component cards/lists/buttons
+- Sample data that makes sense
+- Navigation and interactions
+- Mobile-optimized layouts
 
-You can build fitness apps, education apps, dashboards, client portals, booking tools, creative studios, ecommerce-style pages, productivity tools, AI assistants, and custom business apps.
-
-If the user request is broad, generate a strong first version using reasonable assumptions, then ask what they want to customize next.
-
-Never respond with generic placeholder text like 'Result' or 'Build update.'
-
-Speak like a helpful builder:
-- 'I'm building the first version now.'
-- 'I created the core screens and layout.'
-- 'Here are the best next upgrades.'
-
-Always keep the conversation moving forward.
-
-Return only valid HTML for app previews. No markdown, no explanation, no code fences unless required by the platform. Build clean, modern, responsive UI. Keep output production-ready, semantic, and lightweight. If asked for a page, generate a complete single-file HTML document with embedded CSS and minimal inline JS.`;
+No placeholder boxes. No ugly emoji. No generic "Result" text.
+Return ONLY valid, complete HTML. No markdown, no explanation.`;
 
   let contextualAddition = '';
 

@@ -1,0 +1,35 @@
+{
+  "name": "openrouter-agent-tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "tui": "tsx src/cli.ts",
+    "serve": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
+    "dev:tui": "tsx watch src/cli.ts",
+    "dev:server": "tsx watch src/server.ts",
+    "doctor": "tsx src/doctor.ts",
+    "smoke": "tsx src/smoke.ts",
+    "agent:smoke": "tsx src/agent-smoke.ts",
+    "preset:inspect": "tsx src/preset-inspect.ts",
+    "preset:repair": "tsx src/preset-repair.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openrouter/agent": "^0.7.2",
+    "@openrouter/sdk": "^0.13.24",
+    "dotenv": "^17.2.3",
+    "glob": "^13.0.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
+  }
+}

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lotus OpenRouter Agent</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #080b0f;
+        color: #edf7f3;
+      }
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 15% 10%, rgba(31, 121, 94, .42), transparent 34%),
+          radial-gradient(circle at 84% 0%, rgba(82, 92, 210, .34), transparent 32%),
+          linear-gradient(145deg, #080b0f, #0d1715 46%, #11131d);
+      }
+      main {
+        width: min(960px, 100%);
+        display: grid;
+        gap: 18px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 62px);
+        line-height: .95;
+        letter-spacing: 0;
+      }
+      .status {
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #a8f3c6;
+        background: rgba(7, 16, 14, .76);
+        white-space: nowrap;
+      }
+      section {
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 8px;
+        background: rgba(8, 13, 18, .78);
+        box-shadow: 0 24px 90px rgba(0,0,0,.36);
+        overflow: hidden;
+      }
+      .messages {
+        min-height: 360px;
+        max-height: 56vh;
+        overflow: auto;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .message {
+        max-width: 84%;
+        padding: 12px 14px;
+        border-radius: 8px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+      .user {
+        align-self: end;
+        background: #d5fff0;
+        color: #08231a;
+      }
+      .assistant {
+        align-self: start;
+        background: rgba(255,255,255,.08);
+        border: 1px solid rgba(255,255,255,.12);
+      }
+      form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 14px;
+        border-top: 1px solid rgba(255,255,255,.12);
+        background: rgba(0,0,0,.22);
+      }
+      textarea {
+        min-height: 54px;
+        max-height: 160px;
+        resize: vertical;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 8px;
+        padding: 14px;
+        background: rgba(255,255,255,.08);
+        color: inherit;
+        font: inherit;
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 0 20px;
+        background: #8df5bf;
+        color: #062116;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: .55;
+        cursor: wait;
+      }
+      @media (max-width: 680px) {
+        header { align-items: start; flex-direction: column; }
+        form { grid-template-columns: 1fr; }
+        button { min-height: 48px; }
+        .message { max-width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Lotus OpenRouter Agent</h1>
+          <p>Live cloud preview using <strong>@preset/lotus</strong></p>
+        </div>
+        <div class="status" id="status">checking...</div>
+      </header>
+      <section>
+        <div class="messages" id="messages">
+          <div class="message assistant">Ask me to build, inspect, or reason through something. This page calls the hosted API, not a local server.</div>
+        </div>
+        <form id="form">
+          <textarea id="prompt" placeholder="Type a prompt..." required>Hello! How are you today?</textarea>
+          <button id="send" type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+    <script>
+      const statusEl = document.getElementById("status");
+      const messagesEl = document.getElementById("messages");
+      const form = document.getElementById("form");
+      const promptEl = document.getElementById("prompt");
+      const send = document.getElementById("send");
+
+      function addMessage(role, text) {
+        const item = document.createElement("div");
+        item.className = `message ${role}`;
+        item.textContent = text;
+        messagesEl.appendChild(item);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function checkHealth() {
+        try {
+          const response = await fetch("/health");
+          const data = await response.json();
+          statusEl.textContent = data.ok ? data.model : "offline";
+        } catch {
+          statusEl.textContent = "offline";
+        }
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const prompt = promptEl.value.trim();
+        if (!prompt) return;
+        addMessage("user", prompt);
+        promptEl.value = "";
+        send.disabled = true;
+        send.textContent = "Sending";
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt })
+          });
+          const data = await response.json();
+          if (!response.ok || data.error) throw new Error(data.error || "Request failed");
+          addMessage("assistant", data.message?.content || "No response text.");
+        } catch (error) {
+          addMessage("assistant", error.message || String(error));
+        } finally {
+          send.disabled = false;
+          send.textContent = "Send";
+        }
+      });
+
+      checkHealth();
+    </script>
+  </body>
+</html>
