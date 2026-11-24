@@ -12,6 +12,7 @@
 - Connected the Expo project `@internetkartel/lotus-app-builder` (project ID `4d9ca0de-52e9-4091-9c0c-fe685715d21c`).
 - Configured the production EAS iOS build profile and Apple's exempt-encryption declaration.
 - Added a truthful first-project starter instead of a demo dashboard with made-up metrics.
+- Connected Build App to Lotus's authenticated code-building engine. It creates and updates a static web app in a linked server project; follow-up prompts keep editing that project.
 - Added project rename, duplicate, and delete controls. Projects are saved locally on this device.
 - Added self-contained responsive HTML export alongside specification JSON export. HTML is a frontend draft, not a compiled native app or a connected backend.
 - Added in-app links to the privacy policy, terms, AI provider settings, and support.
@@ -23,6 +24,7 @@
 - Confirm `com.lotus.appbuilder` is available in App Store Connect and create the Lotus App Builder app record.
 - Review the privacy policy against the native app's actual data handling, including local project storage and connected AI providers.
 - Deploy the account-deletion endpoint change from the companion Lotus web app before release.
+- Deploy the companion `/api/native/build` endpoint before release builds.
 - Complete App Store Connect product-page metadata, privacy disclosures, age rating, screenshots, and review notes.
 - Produce an iOS build, install it through TestFlight, and test on physical iPhone and iPad devices before App Review.
 
