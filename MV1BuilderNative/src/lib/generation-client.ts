@@ -22,6 +22,52 @@ export class GenerationError extends Error {
   }
 }
 
+export type RealBuildResult = {
+  projectId: string;
+  name: string;
+  html: string;
+  reply: string;
+  version: number;
+  entryPath: string;
+  routingNotice?: string;
+};
+
+export async function buildRealApp(
+  projectId: string | undefined,
+  prompt: string,
+  currentHtml: string | undefined,
+  signal?: AbortSignal,
+  allowDowngrade = false,
+): Promise<RealBuildResult> {
+  const cookie = await authClient.getCookie();
+  const response = await fetch(`${configuredBaseUrl}/api/native/build`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
+    credentials: process.env.EXPO_OS === 'web' ? 'include' : 'omit',
+    body: JSON.stringify({ projectId, prompt, currentHtml, allowDowngrade }),
+    signal,
+  });
+  const body = await response.json().catch(() => ({})) as RealBuildResult & {
+    error?: string;
+    code?: string;
+    confirmation?: string;
+  };
+  if (!response.ok) {
+    throw new GenerationError(
+      body.error ?? 'The app build failed. Your last working code was preserved.',
+      body.code ?? 'BUILD_FAILED',
+      response.status,
+    );
+  }
+  if (!body.projectId || typeof body.html !== 'string' || !body.entryPath) {
+    throw new GenerationError('Lotus returned an incomplete app build.', 'INVALID_BUILD', response.status);
+  }
+  return body;
+}
+
 export async function generateApp(
   prompt: string,
   currentSpecification: AppSpecification,
@@ -52,3 +98,4 @@ export async function generateApp(
   }
   return validateGenerationResult(body);
 }
+
