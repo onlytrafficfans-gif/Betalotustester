@@ -1,6 +1,6 @@
 # Lotus App Builder for iOS
 
-The native Lotus App Builder client turns a text request into a validated app specification, previews it with native components, saves projects on the device, and exports a self-contained HTML draft or the JSON specification. Projects are stored locally on the device; cloud project sync is not included in this client.
+The native Lotus App Builder client sends build prompts to the authenticated Lotus code-building engine, which creates and saves a real static web app in the user's Lotus project. The client keeps the linked server project ID on-device so follow-up prompts refine the same app. It also offers a native blueprint preview, source view, and standalone HTML export. The visual blueprint drafts are stored locally; the generated app files are stored in the linked Lotus server project.
 
 ## Local setup
 
@@ -8,11 +8,11 @@ The native Lotus App Builder client turns a text request into a validated app sp
 2. Optional: copy `.env.example` to `.env.local` to override the default API origin.
 3. Start the development client with `npx expo start`.
 
-The app defaults to `https://lotus-app-builder.vercel.app/api/native/generate`. The AI provider key belongs only in the deployed server environment; never add it to an `EXPO_PUBLIC_*` variable or the app bundle. `.env.server.example` lists the server-side variables.
+The app defaults to `https://www.luckylotus.app`. Build App sends code-generation requests to `/api/native/build`; Update Blueprint uses `/api/native/generate`. Both require the user to be signed in to Lotus. AI provider keys stay on the server and must never be added to an `EXPO_PUBLIC_*` variable or the app bundle. Set `EXPO_PUBLIC_API_URL` to override the server origin.
 
-The repository includes a native-compatible Vercel route at `api/native/generate.ts`. It uses the server-side `OPENROUTER_API_KEY` and returns the validated specification shape expected by the app. If you deploy the Expo Router server instead, it also has a matching `/api/native/generate` route under `src/app/api/native/generate+api.ts`; set `EXPO_PUBLIC_API_URL` to that server's origin. The separate Lotus website's `/api/ai/generate` route returns a different response shape and is not used by this client.
+The `/api/native/build` endpoint uses Lotus's server-side model routing and persists generated files in the user's server project. That route must be deployed before using Build App. The `/api/native/generate` route remains available for blueprint-only edits.
 
-The app includes project rename, duplicate, and delete controls, plus links to account help and legal information. In-app account deletion requires the companion Lotus backend account-deletion change to be deployed. HTML export is a responsive frontend draft, not a compiled native app or a complete production backend.
+The app includes project rename, duplicate, and delete controls, plus links to account help and legal information. In-app account deletion requires the companion Lotus backend account-deletion change to be deployed. Native code generation currently produces static web apps. Use the full Lotus web builder for multi-file React/Next.js projects, backend data models, integrations, and Vercel deployments. HTML export does not compile an iOS or Android app.
 
 ## iOS release builds
 
