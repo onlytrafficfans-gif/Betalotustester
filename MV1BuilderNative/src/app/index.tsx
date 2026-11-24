@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NativePreview } from '@/components/native-preview';
 import { authClient } from '@/lib/auth-client';
+import { exportSpecificationAsHtml } from '@/lib/export-html';
 import { generateApp, GenerationError } from '@/lib/generation-client';
 import { starterSpecification } from '@/lib/specification';
 import { loadProjects, saveProjects } from '@/lib/storage';
@@ -65,7 +66,7 @@ function ActionButton({
   );
 }
 
-function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
+function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: () => void; email: string; onDeleteAccount: (password: string) => Promise<void> }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktop = width >= 960;
@@ -201,11 +202,78 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
     }
   };
 
+  const exportHtml = async () => {
+    try {
+      const safeName = project.specification.projectName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      const file = new File(Paths.cache, `${safeName || 'lotus-project'}.html`);
+      if (file.exists) file.delete();
+      file.create();
+      file.write(exportSpecificationAsHtml(project.specification));
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/html' });
+      else {
+        await Clipboard.setStringAsync(exportSpecificationAsHtml(project.specification));
+        Alert.alert('HTML copied', 'The self-contained HTML draft was copied to your clipboard.');
+      }
+    } catch {
+      Alert.alert('Export failed', 'The HTML draft could not be exported.');
+    }
+  };
+
+  const renameProject = () => {
+    Alert.prompt('Rename project', 'Choose a name for this draft.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Save', onPress: (value: string | undefined) => {
+        const projectName = value?.trim();
+        if (projectName) commitProject({ ...project, updatedAt: new Date().toISOString(), specification: { ...project.specification, projectName } });
+      } },
+    ], 'plain-text', project.specification.projectName);
+  };
+
+  const duplicateProject = () => commitProject({
+    ...project,
+    id: newId(),
+    updatedAt: new Date().toISOString(),
+    specification: { ...project.specification, projectName: `${project.specification.projectName} copy` },
+    versions: [],
+  });
+
+  const deleteCurrentProject = () => {
+    Alert.alert('Delete this project?', 'This permanently removes this saved draft from this device.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        const remaining = projects.filter((item) => item.id !== project.id);
+        const next = remaining.length ? remaining : [createProject()];
+        setProject(next[0]);
+        setProjects(next);
+        saveProjects(next).catch(() => setError('Project changes could not be persisted.'));
+      } },
+    ]);
+  };
+
+  const openAccount = () => Alert.alert('Account & help', email, [
+    { text: 'Privacy policy', onPress: () => { void openURL('https://www.luckylotus.app/legal/privacy'); } },
+    { text: 'Terms of service', onPress: () => { void openURL('https://www.luckylotus.app/legal/terms'); } },
+    { text: 'Contact support', onPress: () => { void openURL('mailto:support@luckylotus.app'); } },
+    { text: 'AI provider settings', onPress: () => { void openURL('https://www.luckylotus.app/?section=settings&tab=ai'); } },
+    { text: 'Delete account', style: 'destructive', onPress: () => Alert.alert('Permanently delete account?', 'Your Lotus account and saved projects on this device will be removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Continue', style: 'destructive', onPress: () => Alert.prompt('Confirm your password', 'Enter your Lotus password to permanently delete your account.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete account', style: 'destructive', onPress: (password: string | undefined) => {
+          if (!password) return;
+          void onDeleteAccount(password).catch((caught) => Alert.alert('Could not delete account', caught instanceof Error ? caught.message : 'Please try again.'));
+        } },
+      ], 'secure-text') },
+    ]) },
+    { text: 'Sign out', style: 'cancel', onPress: onSignOut },
+    { text: 'Close', style: 'cancel' },
+  ]);
+
   if (loading) {
     return (
       <View style={{ alignItems: 'center', backgroundColor: '#070809', flex: 1, justifyContent: 'center', gap: 12 }}>
         <ActivityIndicator color="#63F58B" />
-        <Text style={{ color: '#A7ADB5' }}>Loading your projects…</Text>
+        <Text style={{ color: '#A7ADB5' }}>Loading your projects.</Text>
       </View>
     );
   }
@@ -213,7 +281,7 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
   const chatPane = (
     <View style={{ flex: 1, gap: 12 }}>
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Text accessibilityElementsHidden style={{ color: '#63F58B', fontSize: 24 }}>✦</Text>
+        <Text accessibilityElementsHidden style={{ color: '#63F58B', fontSize: 24 }}>?</Text>
         <View style={{ flex: 1 }}>
           <Text selectable style={{ color: '#F7F8F9', fontSize: 18, fontWeight: '800' }}>Build with Lotus</Text>
           <Text selectable style={{ color: '#747B84', fontSize: 12 }}>Controlled native generation</Text>
@@ -259,7 +327,7 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
         accessibilityLabel="App description"
         multiline
         onChangeText={setPrompt}
-        placeholder="Describe an app or request a focused edit…"
+        placeholder="Describe an app or request a focused edit."
         placeholderTextColor="#5F666F"
         style={{
           backgroundColor: '#101215',
@@ -275,7 +343,7 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
       />
       {error ? <Text selectable style={{ color: '#FF7B7B', fontSize: 12 }}>{error}</Text> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <ActionButton title={generating ? 'Generating…' : 'Generate'} primary disabled={!prompt.trim() || generating} onPress={() => runGeneration()} />
+        <ActionButton title={generating ? 'Generating.' : 'Generate'} primary disabled={!prompt.trim() || generating} onPress={() => runGeneration()} />
         {generating ? <ActionButton title="Stop" onPress={stopGeneration} /> : null}
         <ActionButton
           title="Regenerate"
@@ -295,7 +363,10 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
           <Text selectable style={{ color: '#F7F8F9', fontSize: 17, fontWeight: '800' }}>Specification</Text>
           <Text selectable style={{ color: '#747B84', fontSize: 12 }}>{project.versions.length} saved versions</Text>
         </View>
-        <ActionButton title="Export JSON" onPress={exportProject} />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <ActionButton title="Export HTML" primary onPress={exportHtml} />
+          <ActionButton title="Export JSON" onPress={exportProject} />
+        </View>
       </View>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
@@ -308,6 +379,11 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
       </ScrollView>
       <View style={{ gap: 8 }}>
         <Text selectable style={{ color: '#9DA3AB', fontSize: 12, fontWeight: '700' }}>Saved projects</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <ActionButton title="Rename" onPress={renameProject} />
+          <ActionButton title="Duplicate" onPress={duplicateProject} />
+          <ActionButton title="Delete" onPress={deleteCurrentProject} />
+        </View>
         <ScrollView horizontal contentContainerStyle={{ gap: 8 }}>
           {projects.map((saved) => (
             <Pressable
@@ -375,9 +451,9 @@ function BuilderWorkspace({ onSignOut }: { onSignOut: () => void }) {
             </Pressable>
           ))}
         </View>
+        <ActionButton title="Account" onPress={openAccount} />
         <ActionButton title="New project" onPress={() => commitProject(createProject())} />
         <ActionButton title="Export" primary onPress={exportProject} />
-        <ActionButton title="Sign out" onPress={onSignOut} />
       </View>
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {isDesktop ? (
@@ -575,13 +651,22 @@ export default function BuilderScreen() {
     return (
       <View style={{ alignItems: 'center', backgroundColor: '#070809', flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator color="#63F58B" />
-        <Text style={{ color: '#A6A6A6', marginTop: 12 }}>Checking your Lotus session…</Text>
+        <Text style={{ color: '#A6A6A6', marginTop: 12 }}>Checking your Lotus session.</Text>
       </View>
     );
   }
 
   if (session?.user) {
-    return <BuilderWorkspace onSignOut={() => { void authClient.signOut(); }} />;
+    return <BuilderWorkspace
+      email={session.user.email}
+      onSignOut={() => { void authClient.signOut(); }}
+      onDeleteAccount={async (password) => {
+        const result = await authClient.deleteUser({ password });
+        if (result.error) throw new Error(result.error.message ?? 'Your password could not be verified.');
+        await saveProjects([]);
+        await authClient.signOut();
+      }}
+    />;
   }
 
   return (
@@ -624,7 +709,7 @@ export default function BuilderScreen() {
         />
         {authError ? <Text accessibilityRole="alert" style={{ color: '#FF8A8A' }}>{authError}</Text> : null}
         <ActionButton
-          title={submitting ? 'Please wait…' : creatingAccount ? 'Create account' : 'Sign in'}
+          title={submitting ? 'Please wait.' : creatingAccount ? 'Create account' : 'Sign in'}
           primary
           disabled={submitting || !email.trim() || !password || (creatingAccount && !name.trim())}
           onPress={() => { void submit(); }}
@@ -637,7 +722,13 @@ export default function BuilderScreen() {
         <Pressable onPress={() => { void openURL('https://www.luckylotus.app/?section=settings&tab=ai'); }} style={{ padding: 8 }}>
           <Text style={{ color: '#8E9C91', textAlign: 'center' }}>Open Lotus AI settings to connect your provider key</Text>
         </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 18 }}>
+          <Pressable onPress={() => { void openURL('https://www.luckylotus.app/legal/privacy'); }}><Text style={{ color: '#8E9C91', fontSize: 12 }}>Privacy</Text></Pressable>
+          <Pressable onPress={() => { void openURL('https://www.luckylotus.app/legal/terms'); }}><Text style={{ color: '#8E9C91', fontSize: 12 }}>Terms</Text></Pressable>
+          <Pressable onPress={() => { void openURL('mailto:support@luckylotus.app'); }}><Text style={{ color: '#8E9C91', fontSize: 12 }}>Support</Text></Pressable>
+        </View>
       </View>
     </View>
   );
 }
+
