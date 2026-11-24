@@ -63,6 +63,10 @@ export type BuilderProject = {
   id: string;
   updatedAt: string;
   specification: AppSpecification;
+  /** Project stored in the authenticated Lotus web builder, for real code builds. */
+  serverProjectId?: string;
+  /** Last runnable HTML entry returned by the Lotus code-building engine. */
+  generatedHtml?: string;
   versions: VersionSnapshot[];
 };
 
@@ -77,3 +81,4 @@ export type GenerationResult = {
   summary: string;
   changedSections: string[];
 };
+
