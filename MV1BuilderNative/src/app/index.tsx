@@ -25,7 +25,7 @@ import { starterSpecification } from '@/lib/specification';
 import { loadProjects, saveProjects } from '@/lib/storage';
 import { BuilderProject, ChatMessage, VersionSnapshot } from '@/types/builder';
 
-const suggestions = ['SaaS dashboard', 'Luxury landing page', 'CRM interface', 'Dark AI workspace'];
+const suggestions = ['Inventory tracker with add/edit/delete', 'Booking app with a working form', 'Restaurant menu with a cart', 'CRM with search and filters'];
 const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const createProject = (): BuilderProject => ({
@@ -74,7 +74,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
   const [project, setProject] = useState<BuilderProject>(createProject);
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: newId(), role: 'assistant', content: 'Describe the web app you want-its pages, actions, forms, and behavior. Lotus can generate runnable HTML code, then you can refine it.' },
+    { id: newId(), role: 'assistant', content: 'Describe what the app should do, not just how it should look. Lotus builds a runnable web app, saves it to your Lotus project, and lets you refine it with follow-up prompts.' },
   ]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -370,7 +370,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
         accessibilityLabel="App description"
         multiline
         onChangeText={setPrompt}
-        placeholder="Describe an app or request a focused edit."
+        placeholder="What should your app let people do? Describe its pages, actions, and data."
         placeholderTextColor="#5F666F"
         style={{
           backgroundColor: '#101215',
