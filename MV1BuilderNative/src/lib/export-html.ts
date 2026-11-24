@@ -18,7 +18,7 @@ export function exportSpecificationAsHtml(specification: AppSpecification) {
   const text = safeColor(specification.theme.text, '#F7F8FA');
   const muted = safeColor(specification.theme.muted, '#8A929E');
   const navigation = specification.navigation.map((label, index) =>
-    `<a href="#section-${index}">${escapeHtml(label)}</a>`,
+    `<a href="#section-${index % Math.max(specification.sections.length, 1)}">${escapeHtml(label)}</a>`,
   ).join('');
   const sections = specification.sections.map((section, index) => {
     const cards = section.items.map((item) => `<article class="card"><h3>${escapeHtml(item.title)}</h3>${item.value ? `<strong>${escapeHtml(item.value)}</strong>` : ''}<p>${escapeHtml(item.description)}</p>${item.meta ? `<small>${escapeHtml(item.meta)}</small>` : ''}</article>`).join('');

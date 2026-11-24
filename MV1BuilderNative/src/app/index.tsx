@@ -209,7 +209,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
       if (file.exists) file.delete();
       file.create();
       file.write(exportSpecificationAsHtml(project.specification));
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/html' });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/html', UTI: 'public.html' });
       else {
         await Clipboard.setStringAsync(exportSpecificationAsHtml(project.specification));
         Alert.alert('HTML copied', 'The self-contained HTML draft was copied to your clipboard.');
