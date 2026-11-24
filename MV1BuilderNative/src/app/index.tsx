@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativePreview } from '@/components/native-preview';
 import { authClient } from '@/lib/auth-client';
 import { exportSpecificationAsHtml } from '@/lib/export-html';
-import { generateApp, GenerationError } from '@/lib/generation-client';
+import { buildRealApp, generateApp, GenerationError } from '@/lib/generation-client';
 import { starterSpecification } from '@/lib/specification';
 import { loadProjects, saveProjects } from '@/lib/storage';
 import { BuilderProject, ChatMessage, VersionSnapshot } from '@/types/builder';
@@ -74,12 +74,12 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
   const [project, setProject] = useState<BuilderProject>(createProject);
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: newId(), role: 'assistant', content: 'Describe an app and I will update the validated native specification.' },
+    { id: newId(), role: 'assistant', content: 'Describe the web app you want-its pages, actions, forms, and behavior. Lotus can generate runnable HTML code, then you can refine it.' },
   ]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string>();
-  const [mobilePane, setMobilePane] = useState<'chat' | 'preview' | 'spec'>('chat');
+  const [mobilePane, setMobilePane] = useState<'chat' | 'preview' | 'code' | 'spec'>('chat');
   const [workspacePane, setWorkspacePane] = useState<'preview' | 'code'>('preview');
   const generationController = useRef<AbortController | null>(null);
 
@@ -170,6 +170,48 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
     }
   };
 
+  const runRealBuild = async (requestedPrompt = prompt, allowDowngrade = false, appendUserMessage = true) => {
+    if (generating) return;
+    const normalizedPrompt = requestedPrompt.trim();
+    if (!normalizedPrompt) return;
+    const controller = new AbortController();
+    generationController.current = controller;
+    setGenerating(true);
+    setError(undefined);
+    if (appendUserMessage) setMessages((current) => [...current, { id: newId(), role: 'user', content: normalizedPrompt }]);
+    try {
+      const result = await buildRealApp(project.serverProjectId, normalizedPrompt, project.generatedHtml, controller.signal, allowDowngrade);
+      commitProject({
+        ...project,
+        updatedAt: new Date().toISOString(),
+        serverProjectId: result.projectId,
+        generatedHtml: result.html,
+      });
+      setMessages((current) => [...current, { id: newId(), role: 'assistant', content: result.reply }]);
+      setPrompt('');
+      setMobilePane('code');
+      if (process.env.EXPO_OS === 'ios') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (caught) {
+      if (caught instanceof GenerationError && caught.code === 'DOWNGRADE_CONSENT_REQUIRED' && !allowDowngrade) {
+        const consentMessage = 'The selected Lotus model is unavailable for this build. Continue with a lower-tier model?';
+        setMessages((current) => [...current, { id: newId(), role: 'assistant', content: consentMessage }]);
+        Alert.alert('Use a lower-tier model?', consentMessage, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Continue', onPress: () => { void runRealBuild(normalizedPrompt, true, false); } },
+        ]);
+        return;
+      }
+      const message = caught instanceof Error && caught.name === 'AbortError'
+        ? 'Build stopped. Your last working code was preserved.'
+        : caught instanceof Error ? caught.message : 'Build failed. Your last working code was preserved.';
+      setError(message);
+      setMessages((current) => [...current, { id: newId(), role: 'assistant', content: message }]);
+    } finally {
+      generationController.current = null;
+      setGenerating(false);
+    }
+  };
+
   const stopGeneration = () => generationController.current?.abort();
 
   const regenerate = () => {
@@ -208,11 +250,12 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
       const file = new File(Paths.cache, `${safeName || 'lotus-project'}.html`);
       if (file.exists) file.delete();
       file.create();
-      file.write(exportSpecificationAsHtml(project.specification));
+      const html = project.generatedHtml ?? exportSpecificationAsHtml(project.specification);
+      file.write(html);
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'text/html', UTI: 'public.html' });
       else {
-        await Clipboard.setStringAsync(exportSpecificationAsHtml(project.specification));
-        Alert.alert('HTML copied', 'The self-contained HTML draft was copied to your clipboard.');
+        await Clipboard.setStringAsync(html);
+        Alert.alert('HTML copied', project.generatedHtml ? 'The runnable app HTML was copied to your clipboard.' : 'The starter HTML draft was copied to your clipboard.');
       }
     } catch {
       Alert.alert('Export failed', 'The HTML draft could not be exported.');
@@ -284,7 +327,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
         <Text accessibilityElementsHidden style={{ color: '#63F58B', fontSize: 24 }}>?</Text>
         <View style={{ flex: 1 }}>
           <Text selectable style={{ color: '#F7F8F9', fontSize: 18, fontWeight: '800' }}>Build with Lotus</Text>
-          <Text selectable style={{ color: '#747B84', fontSize: 12 }}>Controlled native generation</Text>
+          <Text selectable style={{ color: '#747B84', fontSize: 12 }}>Build runnable web apps with Lotus</Text>
         </View>
       </View>
       <ScrollView
@@ -343,7 +386,8 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
       />
       {error ? <Text selectable style={{ color: '#FF7B7B', fontSize: 12 }}>{error}</Text> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <ActionButton title={generating ? 'Generating.' : 'Generate'} primary disabled={!prompt.trim() || generating} onPress={() => runGeneration()} />
+        <ActionButton title={generating ? 'Building.' : 'Build app'} primary disabled={!prompt.trim() || generating} onPress={() => runRealBuild()} />
+        <ActionButton title="Update blueprint" disabled={!prompt.trim() || generating} onPress={() => runGeneration()} />
         {generating ? <ActionButton title="Stop" onPress={stopGeneration} /> : null}
         <ActionButton
           title="Regenerate"
@@ -364,7 +408,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
           <Text selectable style={{ color: '#747B84', fontSize: 12 }}>{project.versions.length} saved versions</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <ActionButton title="Export HTML" primary onPress={exportHtml} />
+          <ActionButton title={project.generatedHtml ? 'Export app HTML' : 'Export starter HTML'} primary onPress={exportHtml} />
           <ActionButton title="Export JSON" onPress={exportProject} />
         </View>
       </View>
@@ -406,6 +450,37 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
       </View>
     </View>
   );
+
+  const codePane = (
+    <View style={{ flex: 1, gap: 10 }}>
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text selectable style={{ color: '#F7F8F9', fontSize: 17, fontWeight: '800' }}>Runnable app source</Text>
+          <Text selectable style={{ color: '#747B84', fontSize: 12 }}>{project.generatedHtml ? 'HTML entry � saved to your Lotus project' : 'Build an app to generate its source code'}</Text>
+        </View>
+        <ActionButton title="Copy" disabled={!project.generatedHtml} onPress={() => {
+          if (project.generatedHtml) void Clipboard.setStringAsync(project.generatedHtml).then(() => Alert.alert('Copied', 'App source copied to clipboard.'));
+        }} />
+        <ActionButton title="Export" primary onPress={exportHtml} />
+      </View>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={{ backgroundColor: '#0B0D0F', borderColor: '#262B31', borderRadius: 16, borderWidth: 1, flex: 1 }}
+        contentContainerStyle={{ padding: 14 }}
+      >
+        <Text selectable style={{ color: project.generatedHtml ? '#A8E8BA' : '#9299A2', fontFamily: 'monospace', fontSize: 11, lineHeight: 18 }}>
+          {project.generatedHtml ?? 'Your first app build will appear here as runnable HTML. It can be refined with follow-up prompts and exported as a standalone file.'}
+        </Text>
+      </ScrollView>
+      <Text selectable style={{ color: '#777F88', fontSize: 11, lineHeight: 16 }}>
+        {project.generatedHtml ? `Server project ${project.serverProjectId?.slice(0, 8) ?? ''} � Export the HTML file to run it in a browser.` : 'The blueprint preview is for layout. Build app to generate real code.'}
+      </Text>
+    </View>
+  );
+
+  const showPreviewPane = isDesktop ? workspacePane === 'preview' : mobilePane === 'preview';
+  const showCodePane = isDesktop ? workspacePane === 'code' : mobilePane === 'code';
+  const showSpecificationPane = !isDesktop && mobilePane === 'spec';
 
   return (
     <View style={{ backgroundColor: '#080808', flex: 1 }}>
@@ -501,7 +576,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
         <View style={{ flex: 1, gap: 10, padding: isDesktop ? 8 : 10 }}>
         {!isDesktop ? (
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {(['chat', 'preview', 'spec'] as const).map((pane) => (
+            {(['chat', 'preview', 'code', 'spec'] as const).map((pane) => (
               <Pressable
                 key={pane}
                 onPress={() => setMobilePane(pane)}
@@ -512,8 +587,8 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
                   padding: 10,
                 }}
               >
-                <Text style={{ color: mobilePane === pane ? '#071009' : '#D9DDE2', fontWeight: '700', textAlign: 'center', textTransform: 'capitalize' }}>
-                  {pane}
+                <Text style={{ color: mobilePane === pane ? '#071009' : '#D9DDE2', fontSize: 11, fontWeight: '700', textAlign: 'center', textTransform: 'capitalize' }}>
+                  {pane === 'preview' ? 'Blueprint' : pane}
                 </Text>
               </Pressable>
             ))}
@@ -544,7 +619,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
               {chatPane}
             </View>
           )}
-          {(isDesktop || mobilePane === 'preview' || mobilePane === 'spec') && (
+          {(isDesktop || mobilePane === 'preview' || mobilePane === 'code' || mobilePane === 'spec') && (
             <View
               style={{
                 backgroundColor: '#111111',
@@ -578,7 +653,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
                       key={pane}
                       onPress={() => {
                         setWorkspacePane(pane);
-                        if (!isDesktop) setMobilePane(pane === 'code' ? 'spec' : 'preview');
+                        if (!isDesktop) setMobilePane(pane);
                       }}
                       style={{
                         backgroundColor: workspacePane === pane ? '#323232' : 'transparent',
@@ -588,7 +663,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
                       }}
                     >
                       <Text style={{ color: workspacePane === pane ? '#FFFFFF' : '#777777', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
-                        {pane}
+                        {pane === 'preview' ? 'blueprint' : pane}
                       </Text>
                     </Pressable>
                   ))}
@@ -596,8 +671,8 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
                 <View style={{ flex: 1 }} />
                 <Text selectable style={{ color: '#6F6F6F', fontSize: 11 }}>100%</Text>
               </View>
-              <View style={{ flex: 1, padding: workspacePane === 'preview' ? 18 : 12 }}>
-                {workspacePane === 'preview' && mobilePane !== 'spec' ? (
+              <View style={{ flex: 1, padding: showPreviewPane ? 18 : 12 }}>
+                {showPreviewPane ? (
                   <View
                     style={{
                       alignSelf: 'center',
@@ -612,7 +687,7 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
                   >
                     <NativePreview specification={project.specification} />
                   </View>
-                ) : specPane}
+                ) : showCodePane ? codePane : showSpecificationPane ? specPane : codePane}
               </View>
             </View>
           )}
