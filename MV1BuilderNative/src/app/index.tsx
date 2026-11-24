@@ -463,6 +463,12 @@ function BuilderWorkspace({ onSignOut, email, onDeleteAccount }: { onSignOut: ()
         }} />
         <ActionButton title="Export" primary onPress={exportHtml} />
       </View>
+      {project.serverProjectId ? (
+        <ActionButton
+          title="Open in full Lotus builder"
+          onPress={() => { void openURL(`https://www.luckylotus.app/projects/${encodeURIComponent(project.serverProjectId!)}`); }}
+        />
+      ) : null}
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={{ backgroundColor: '#0B0D0F', borderColor: '#262B31', borderRadius: 16, borderWidth: 1, flex: 1 }}
